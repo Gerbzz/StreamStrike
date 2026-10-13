@@ -1,12 +1,24 @@
 # StreamStrike
 
-StreamStrike is the beginning of a free, local recording and streaming application in the Strike suite. This checkpoint is a **source-only Rust project core and CLI**, not a screen recorder. It can create a versioned project, add and select scenes, add display/window/microphone/desktop-audio source descriptions, store mute and gain for audio sources, and reload the project. Source selectors are strings for a future engine to resolve; they do not open devices. There is no live preview, capture, mixer signal, recording, replay buffer, or streaming yet.
+**by PWDS**
 
-Part of the Strike suite by PWDS.
+**Set the scene for what comes next.**
 
-The future native app should show the StreamStrike name and its own approved logo on launch, with a separate “by PWDS” publisher mark. This checkpoint has no native launch UI, splash screen, or approved logo asset.
+StreamStrike is laying out the projects behind a future recorder and streamer. Create a project, arrange scenes, describe display and audio sources, and save the setup for later work.
 
-The first native milestone is Windows-first, with Linux and macOS planned. The proposed integration is a Rust application shell and project logic over an isolated native media engine adapter. `libobs` is the current leading engine candidate based on the linked research in [DECISIONS.md](docs/DECISIONS.md); it is C/C++, so such an app would **not** be pure Rust. No engine is chosen, downloaded, linked, or bundled by this checkpoint.
+### Highlights
+
+- Create and select scenes in a local project.
+- Describe display, window, microphone, and desktop-audio sources.
+- Store mute and gain settings for audio sources.
+
+## Current status
+
+Source-only Rust project core and CLI. Source descriptions do not open devices, and there is no preview, recording, replay buffer, mixer signal, or streaming yet. A media engine and native editor remain future work.
+
+## Plan a scene
+
+Create a project, add scenes, choose the active scene, and describe where a future engine should find display or audio sources. Save and reopen the plan. The source names are stored strings: this workflow does not preview, record, or stream devices.
 
 ## Source-level CLI contract
 
@@ -32,3 +44,7 @@ streamstrike show demo.streamstrike
 4. Add replay buffering and then streaming after recording is stable. Design output ownership so a failed stream cannot silently interrupt local recording.
 
 See [DECISIONS.md](docs/DECISIONS.md) for options and dependency status. No license is granted for new StreamStrike source by this checkpoint; choose an explicit project license before distribution. No OBS Project affiliation is claimed.
+
+## Development direction
+
+The next milestone is a Windows native scene/source editor connected to a verified media engine. `libobs` is a researched candidate, not a chosen or bundled dependency; a future integration would include C/C++ code and require a license and runtime audit. The current checkpoint has no native launch UI or approved StreamStrike logo asset. See [DECISIONS.md](docs/DECISIONS.md). No first-party source license grant is made by this checkpoint.
