@@ -16,10 +16,6 @@ StreamStrike is laying out the projects behind a future recorder and streamer. C
 
 Source-only Rust project core and CLI. Source descriptions do not open devices, and there is no preview, recording, replay buffer, mixer signal, or streaming yet. A media engine and native editor remain future work.
 
-## Plan a scene
-
-Create a project, add scenes, choose the active scene, and describe where a future engine should find display or audio sources. Save and reopen the plan. The source names are stored strings: this workflow does not preview, record, or stream devices.
-
 ## Source-level CLI contract
 
 When dependencies can be built within the disk budget, the commands are:
