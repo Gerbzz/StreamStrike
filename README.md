@@ -6,7 +6,7 @@
 
 StreamStrike is laying out the projects behind a future recorder and streamer. Create a project, arrange scenes, describe display and audio sources, and save the setup for later work.
 
-### Highlights
+## Highlights
 
 - Create and select scenes in a local project.
 - Describe display, window, microphone, and desktop-audio sources.
