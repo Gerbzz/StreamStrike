@@ -1,6 +1,11 @@
 # StreamStrike
 
-**by PWDS**
+<p align="center">
+  <a href="https://prowebdevsolutions.com"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/PWDS-logo-orange.svg">
+    <img src="assets/branding/PWDS-logo.png" alt="PWDS company logo" width="120">
+  </picture></a>
+</p>
 
 **Set the scene for what comes next.**
 
@@ -44,3 +49,7 @@ See [DECISIONS.md](docs/DECISIONS.md) for options and dependency status. No lice
 ## Development direction
 
 The next milestone is a Windows native scene/source editor connected to a verified media engine. `libobs` is a researched candidate, not a chosen or bundled dependency; a future integration would include C/C++ code and require a license and runtime audit. The current checkpoint has no native launch UI or approved StreamStrike logo asset. See [DECISIONS.md](docs/DECISIONS.md). No first-party source license grant is made by this checkpoint.
+
+## PWDS brand artwork
+
+The company mark in this masthead is the existing [official PWDS logo](https://github.com/Gerbzz/PWDS-Website/blob/main/public/prowebdevsolutions-logo.png), with the [official orange display asset](https://prowebdevsolutions.com/images/prowebdevsolutions-logo-orange.svg) for dark backgrounds. Any app logo above it remains the original Strike suite artwork.
