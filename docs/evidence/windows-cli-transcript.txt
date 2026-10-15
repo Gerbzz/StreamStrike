@@ -1,0 +1,56 @@
+PS> streamstrike new demo.streamstrike
+created demo.streamstrike with Scene 1 (ID 1)
+
+PS> streamstrike add-scene demo.streamstrike Game
+added scene ID 2
+
+PS> streamstrike select-scene demo.streamstrike 2
+active scene ID 2
+
+PS> streamstrike add-source demo.streamstrike 2 Monitor display primary
+added source ID 3; selector is stored but not opened
+
+PS> streamstrike add-source demo.streamstrike 2 Voice microphone default
+added source ID 4; selector is stored but not opened
+
+PS> streamstrike set-audio demo.streamstrike 4 false -6
+stored audio settings for source ID 4; no audio device is opened
+
+PS> streamstrike show demo.streamstrike
+{
+  "version": 1,
+  "next_id": 5,
+  "active_scene_id": 2,
+  "scenes": [
+    {
+      "id": 1,
+      "name": "Scene 1",
+      "sources": []
+    },
+    {
+      "id": 2,
+      "name": "Game",
+      "sources": [
+        {
+          "id": 3,
+          "name": "Monitor",
+          "kind": "display",
+          "selector": "primary",
+          "visible": true,
+          "muted": false,
+          "gain_db": 0.0
+        },
+        {
+          "id": 4,
+          "name": "Voice",
+          "kind": "microphone",
+          "selector": "default",
+          "visible": true,
+          "muted": false,
+          "gain_db": -6.0
+        }
+      ]
+    }
+  ]
+}
+

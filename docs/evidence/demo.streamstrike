@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "next_id": 5,
+  "active_scene_id": 2,
+  "scenes": [
+    {
+      "id": 1,
+      "name": "Scene 1",
+      "sources": []
+    },
+    {
+      "id": 2,
+      "name": "Game",
+      "sources": [
+        {
+          "id": 3,
+          "name": "Monitor",
+          "kind": "display",
+          "selector": "primary",
+          "visible": true,
+          "muted": false,
+          "gain_db": 0.0
+        },
+        {
+          "id": 4,
+          "name": "Voice",
+          "kind": "microphone",
+          "selector": "default",
+          "visible": true,
+          "muted": false,
+          "gain_db": -6.0
+        }
+      ]
+    }
+  ]
+}

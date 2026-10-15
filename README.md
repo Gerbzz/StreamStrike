@@ -21,9 +21,9 @@ StreamStrike is laying out the projects behind a future recorder and streamer. C
 
 Source-only Rust project core and CLI. Source descriptions do not open devices, and there is no preview, recording, replay buffer, mixer signal, or streaming yet. A media engine and native editor remain future work.
 
-## Source-level CLI contract
+## Verified Windows CLI run
 
-When dependencies can be built within the disk budget, the commands are:
+The [Windows run on the exact source commit](https://github.com/Gerbzz/StreamStrike/actions/runs/38704970118) passed two Rust tests, built the CLI, and executed these commands against a synthetic local project:
 
 ```text
 streamstrike new demo.streamstrike
@@ -34,6 +34,8 @@ streamstrike add-source demo.streamstrike 2 Voice microphone default
 streamstrike set-audio demo.streamstrike 4 false -6
 streamstrike show demo.streamstrike
 ```
+
+The [actual CLI transcript](docs/evidence/windows-cli-transcript.txt), [resulting project](docs/evidence/demo.streamstrike), and [capture provenance](docs/evidence/README.md) are retained in this repository. For example, the executable reported `added source ID 4; selector is stored but not opened` and `stored audio settings for source ID 4; no audio device is opened`. This is command output, not a native app screenshot; there is no native editor to capture yet.
 
 `new` refuses an existing path. Edits validate the full project and use a staging file and old-project backup. If a save is interrupted, the program leaves sidecars for inspection and refuses to overwrite them. The format is limited to 1 MiB. Nothing in this CLI records audio/video or contacts a service.
 
