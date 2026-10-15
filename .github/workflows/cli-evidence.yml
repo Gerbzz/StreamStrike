@@ -1,0 +1,65 @@
+name: Windows CLI evidence
+
+on:
+  push:
+    branches: [feature/cli-evidence-2026-10-15]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: streamstrike-cli-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test and build exact branch source
+        shell: pwsh
+        run: |
+          rustc --version
+          cargo test --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed' }
+          cargo build --locked --bin streamstrike
+          if ($LASTEXITCODE -ne 0) { throw 'Rust build failed' }
+      - name: Record real CLI output from a synthetic project
+        shell: pwsh
+        run: |
+          $evidence = Join-Path $env:RUNNER_TEMP 'streamstrike-evidence'
+          New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
+          $app = Join-Path (Get-Location) 'target\debug\streamstrike.exe'
+          $transcript = Join-Path $evidence 'cli-transcript.txt'
+          function Invoke-RecordedCli([string[]]$argv) {
+            "PS> streamstrike $($argv -join ' ')" | Add-Content -LiteralPath $transcript
+            $output = & $app @argv 2>&1
+            $code = $LASTEXITCODE
+            $output | Out-String -Width 200 | Add-Content -LiteralPath $transcript
+            if ($code -ne 0) { throw "streamstrike exited $code" }
+          }
+          Push-Location $evidence
+          try {
+            Invoke-RecordedCli @('new', 'demo.streamstrike')
+            Invoke-RecordedCli @('add-scene', 'demo.streamstrike', 'Game')
+            Invoke-RecordedCli @('select-scene', 'demo.streamstrike', '2')
+            Invoke-RecordedCli @('add-source', 'demo.streamstrike', '2', 'Monitor', 'display', 'primary')
+            Invoke-RecordedCli @('add-source', 'demo.streamstrike', '2', 'Voice', 'microphone', 'default')
+            Invoke-RecordedCli @('set-audio', 'demo.streamstrike', '4', 'false', '-6')
+            Invoke-RecordedCli @('show', 'demo.streamstrike')
+          } finally {
+            Pop-Location
+          }
+          $file = Get-Item -LiteralPath $transcript -ErrorAction Stop
+          if ($file.Length -lt 200 -or $file.Length -gt 1MB) {
+            throw "CLI transcript has an unexpected size: $($file.Length) bytes"
+          }
+          "source_commit=$env:GITHUB_SHA" | Set-Content -LiteralPath (Join-Path $evidence 'provenance.txt')
+          "The project uses synthetic display and microphone selectors; no devices are opened." | Add-Content -LiteralPath (Join-Path $evidence 'provenance.txt')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: streamstrike-cli-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/streamstrike-evidence/
+          if-no-files-found: error
+          retention-days: 1
