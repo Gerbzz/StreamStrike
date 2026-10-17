@@ -314,7 +314,7 @@ impl EditorApp {
             self.confirm_delete = self.active_scene().map(|scene| self.deletion_request(DeleteTarget::Scene { id: scene.id, name: scene.name.clone() }));
         }
         ui.separator();
-        if let Some(id) = self.selected_source {
+        if self.selected_source.is_some() {
             ui.strong("Selected source");
             ui.label("Name");
             ui.text_edit_singleline(&mut self.source_name);
@@ -354,7 +354,7 @@ impl EditorApp {
                 DeleteTarget::Source { name, .. } => ("Delete source?", name),
             };
             egui::Window::new(title).collapsible(false).resizable(false).show(ctx, |ui| {
-                ui.label(format!("Remove "{name}" from this project? Save to keep the change."));
+                ui.label(format!("Remove {name} from this project? Save to keep the change."));
                 ui.horizontal(|ui| {
                     if ui.button("Delete").clicked() {
                         let result = self.delete_target(&target);
