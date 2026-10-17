@@ -580,5 +580,21 @@ mod tests {
         assert!(app.delete_target(&request).is_err());
         assert_eq!(app.document.project, streamstrike::Project::new());
     }
+
+    #[test]
+    fn creation_form_alone_requires_confirmed_replacement() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        let ctx = egui::Context::default();
+        app.new_source_name = "Draft source".into();
+        app.new_selector = "pending".into();
+        app.new_kind = SourceKind::Window;
+        assert!(app.has_pending_changes());
+        app.request(Pending::New, &ctx);
+        assert!(app.pending.is_some());
+        assert_eq!(app.new_source_name, "Draft source");
+        app.pending = None;
+        assert_eq!(app.new_selector, "pending");
+        assert!(app.has_pending_changes());
+    }
 }
 
