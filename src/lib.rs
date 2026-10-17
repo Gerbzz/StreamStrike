@@ -3,10 +3,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+pub mod editor;
+pub mod storage;
+
 pub const PROJECT_VERSION: u32 = 1;
 pub const MAX_PROJECT_BYTES: u64 = 1024 * 1024;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Project {
     pub version: u32,
@@ -15,7 +18,7 @@ pub struct Project {
     pub scenes: Vec<Scene>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scene {
     pub id: u64,
@@ -23,7 +26,7 @@ pub struct Scene {
     pub sources: Vec<Source>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
     pub id: u64,
@@ -147,6 +150,28 @@ impl Project {
         Ok(())
     }
 
+    pub fn rename_scene(&mut self, scene_id: u64, name: &str) -> Result<(), String> {
+        validate_name(name)?;
+        if self.scenes.iter().any(|scene| scene.id != scene_id && scene.name.eq_ignore_ascii_case(name)) {
+            return Err("scene name already exists".into());
+        }
+        let scene = self.scenes.iter_mut().find(|scene| scene.id == scene_id).ok_or("scene ID not found")?;
+        scene.name = name.into();
+        Ok(())
+    }
+
+    pub fn remove_scene(&mut self, scene_id: u64) -> Result<(), String> {
+        if self.scenes.len() == 1 {
+            return Err("a project needs at least one scene".into());
+        }
+        let index = self.scenes.iter().position(|scene| scene.id == scene_id).ok_or("scene ID not found")?;
+        self.scenes.remove(index);
+        if self.active_scene_id == scene_id {
+            self.active_scene_id = self.scenes[0].id;
+        }
+        Ok(())
+    }
+
     pub fn add_source(
         &mut self,
         scene_id: u64,
@@ -204,6 +229,28 @@ impl Project {
         Ok(())
     }
 
+    pub fn edit_source(&mut self, source_id: u64, name: &str, selector: &str, visible: bool) -> Result<(), String> {
+        validate_name(name)?;
+        if selector.trim().is_empty() || selector.len() > 512 {
+            return Err("source selector must contain 1 to 512 bytes".into());
+        }
+        let scene = self.scenes.iter_mut().find(|scene| scene.sources.iter().any(|source| source.id == source_id)).ok_or("source ID not found")?;
+        if scene.sources.iter().any(|source| source.id != source_id && source.name.eq_ignore_ascii_case(name)) {
+            return Err("source name already exists in scene".into());
+        }
+        let source = scene.sources.iter_mut().find(|source| source.id == source_id).expect("source located above");
+        source.name = name.into();
+        source.selector = selector.into();
+        source.visible = visible;
+        Ok(())
+    }
+
+    pub fn remove_source(&mut self, source_id: u64) -> Result<(), String> {
+        let scene = self.scenes.iter_mut().find(|scene| scene.sources.iter().any(|source| source.id == source_id)).ok_or("source ID not found")?;
+        scene.sources.retain(|source| source.id != source_id);
+        Ok(())
+    }
+
     fn take_id(&mut self) -> Result<u64, String> {
         let next = self
             .next_id
@@ -250,4 +297,23 @@ mod tests {
         project.next_id = 2;
         assert!(project.set_audio(999, false, f32::NAN).is_err());
     }
+
+    #[test]
+    fn scene_and_source_edits_keep_project_valid() {
+        let mut project = Project::new();
+        let second = project.add_scene("Game").unwrap();
+        let source = project.add_source(second, "Display", SourceKind::Display, "primary").unwrap();
+        project.rename_scene(second, "Gameplay").unwrap();
+        project.edit_source(source, "Main display", "monitor-1", false).unwrap();
+        assert!(!project.scenes[1].sources[0].visible);
+        assert!(project.edit_source(source, "", "monitor-1", false).is_err());
+        assert_eq!(project.scenes[1].sources[0].name, "Main display");
+        project.remove_source(source).unwrap();
+        project.select_scene(second).unwrap();
+        project.remove_scene(second).unwrap();
+        assert_eq!(project.active_scene_id, 1);
+        assert!(project.remove_scene(1).is_err());
+        project.validate().unwrap();
+    }
 }
+

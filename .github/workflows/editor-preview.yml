@@ -1,0 +1,56 @@
+name: Native project editor
+
+on:
+  push:
+    branches: [codex/streamstrike-project-editor]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  editor:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test project core, document state, and editor source
+        shell: pwsh
+        run: |
+          cargo test --all-targets
+          if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed' }
+          cargo build --bin streamstrike-editor
+          if ($LASTEXITCODE -ne 0) { throw 'Native editor build failed' }
+      - name: Print generated lockfile for branch review
+        shell: pwsh
+        run: |
+          'LOCK_BEGIN'
+          Get-Content Cargo.lock
+          'LOCK_END'
+      - name: Attempt real native app-only capture
+        shell: pwsh
+        run: |
+          $folder = Join-Path $env:RUNNER_TEMP 'streamstrike-editor-evidence'
+          New-Item -ItemType Directory -Path $folder -Force | Out-Null
+          $image = Join-Path $folder 'streamstrike-editor.png'
+          $sample = Join-Path $env:GITHUB_WORKSPACE 'docs\evidence\demo.streamstrike'
+          $app = Join-Path $env:GITHUB_WORKSPACE 'target\debug\streamstrike-editor.exe'
+          $process = Start-Process -FilePath $app -ArgumentList @('--open', $sample, '--capture', $image) -WindowStyle Hidden -PassThru
+          try { Wait-Process -Id $process.Id -Timeout 30 -ErrorAction SilentlyContinue } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+          if (Test-Path -LiteralPath $image) {
+            $file = Get-Item -LiteralPath $image
+            if ($file.Length -lt 10000 -or $file.Length -gt 5MB) { throw 'Captured PNG has unexpected size' }
+            "Native app-only screenshot from $env:GITHUB_SHA; synthetic selectors; no devices opened." | Set-Content -LiteralPath (Join-Path $folder 'provenance.txt')
+          } else {
+            "Native window capture unavailable on hosted runner at $env:GITHUB_SHA; source tests and build are separate evidence." | Set-Content -LiteralPath (Join-Path $folder 'provenance.txt')
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: streamstrike-editor-${{ github.sha }}
+          path: ${{ runner.temp }}/streamstrike-editor-evidence/
+          if-no-files-found: error
+          retention-days: 1
+
