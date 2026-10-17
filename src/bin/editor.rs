@@ -164,6 +164,7 @@ impl EditorApp {
         self.document = document;
         self.document_generation = self.document_generation.wrapping_add(1);
         self.confirm_delete = None;
+        self.pending = None;
         self.selected_source = None;
         self.new_scene_name.clear();
         self.new_source_name.clear();
@@ -186,6 +187,18 @@ impl EditorApp {
         })?;
         self.sync_selection();
         Ok(())
+    }
+
+    fn add_source_from_form(&mut self) -> Result<u64, String> {
+        self.commit_details()?;
+        let (scene, name, kind, selector) = (self.document.project.active_scene_id, self.new_source_name.trim().to_owned(), self.new_kind, self.new_selector.trim().to_owned());
+        let id = self.document.apply(|project| project.add_source(scene, &name, kind, &selector))?;
+        self.selected_source = Some(id);
+        self.sync_selection();
+        self.new_source_name.clear();
+        self.new_selector.clear();
+        self.new_kind = SourceKind::Display;
+        Ok(id)
     }
 
     fn save_as(&mut self) -> bool {
@@ -291,10 +304,8 @@ impl EditorApp {
         ui.text_edit_singleline(&mut self.new_selector);
         ui.label(RichText::new("Enter the intended display, window, or audio device selector.").weak().small());
         if ui.button("Add source").clicked() {
-            if let Err(error) = self.commit_details() { self.message = Some(format!("Finish current edits: {error}")); return; }
-            let (scene, name, kind, selector) = (self.document.project.active_scene_id, self.new_source_name.trim().to_owned(), self.new_kind, self.new_selector.trim().to_owned());
-            match self.document.apply(|project| project.add_source(scene, &name, kind, &selector)) {
-                Ok(id) => { self.selected_source = Some(id); self.sync_selection(); self.new_source_name.clear(); self.new_selector.clear(); self.message = Some("Source added".into()); }
+            match self.add_source_from_form() {
+                Ok(_) => self.message = Some("Source added".into()),
                 Err(error) => self.message = Some(format!("Could not add source: {error}")),
             }
         }
@@ -595,6 +606,68 @@ mod tests {
         app.pending = None;
         assert_eq!(app.new_selector, "pending");
         assert!(app.has_pending_changes());
+    }
+
+    #[test]
+    fn added_non_display_source_can_be_saved_and_replaced() {
+        for (kind, name) in [
+            (SourceKind::Microphone, "Voice"),
+            (SourceKind::Window, "Game"),
+            (SourceKind::DesktopAudio, "Desktop audio"),
+        ] {
+            let mut app = EditorApp::new(EditorDocument::new(), None);
+            let path = std::env::temp_dir().join(format!(
+                "streamstrike-add-{}-{}.streamstrike",
+                std::process::id(),
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            ));
+            app.document.save_as(&path).unwrap();
+            app.new_source_name = name.into();
+            app.new_selector = "default".into();
+            app.new_kind = kind;
+            let id = app.add_source_from_form().unwrap();
+            assert_eq!(app.active_scene().unwrap().sources[0].id, id);
+            assert_eq!(app.active_scene().unwrap().sources[0].kind, kind);
+            assert!(!app.creation_form_dirty());
+            assert!(app.save());
+            assert!(!app.has_pending_changes());
+
+            let reopened = EditorDocument::open(&path).unwrap();
+            let ctx = egui::Context::default();
+            app.request(Pending::New, &ctx);
+            assert!(app.pending.is_none());
+            assert_eq!(app.document.project, streamstrike::Project::new());
+            app.replace_document(reopened);
+            assert_eq!(app.active_scene().unwrap().sources[0].kind, kind);
+            assert!(!app.has_pending_changes());
+        }
+    }
+
+    #[test]
+    fn successful_open_clears_an_older_navigation_prompt() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        let first = std::env::temp_dir().join(format!(
+            "streamstrike-first-{}-{}.streamstrike", std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        let second = std::env::temp_dir().join(format!(
+            "streamstrike-second-{}-{}.streamstrike", std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        app.document.save_as(&first).unwrap();
+        let mut other = EditorDocument::new();
+        other.apply(|project| project.rename_scene(1, "Opened project")).unwrap();
+        other.save_as(&second).unwrap();
+
+        app.scene_name = "Edited current project".into();
+        let ctx = egui::Context::default();
+        app.request(Pending::New, &ctx);
+        assert!(matches!(app.pending.as_ref(), Some(Pending::New)));
+        assert!(app.save());
+        app.replace_document(EditorDocument::open(&second).unwrap());
+        assert!(app.pending.is_none());
+        assert_eq!(app.active_scene().unwrap().name, "Opened project");
+        assert!(!app.has_pending_changes());
     }
 }
 
