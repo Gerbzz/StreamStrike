@@ -15,8 +15,15 @@ enum DeleteTarget {
     Source { scene_id: u64, id: u64, name: String },
 }
 
+#[derive(Clone)]
+struct DeleteRequest {
+    generation: u64,
+    target: DeleteTarget,
+}
+
 struct EditorApp {
     document: EditorDocument,
+    document_generation: u64,
     selected_source: Option<u64>,
     scene_name: String,
     source_name: String,
@@ -31,7 +38,7 @@ struct EditorApp {
     new_kind: SourceKind,
     message: Option<String>,
     pending: Option<Pending>,
-    confirm_delete: Option<DeleteTarget>,
+    confirm_delete: Option<DeleteRequest>,
     about: bool,
     about_logo: Option<egui::TextureHandle>,
     capture: Option<PathBuf>,
@@ -43,6 +50,7 @@ impl EditorApp {
     fn new(document: EditorDocument, capture: Option<PathBuf>) -> Self {
         let mut app = Self {
             document,
+            document_generation: 0,
             selected_source: None,
             scene_name: String::new(),
             source_name: String::new(),
@@ -99,7 +107,13 @@ impl EditorApp {
         Some(DeleteTarget::Source { scene_id: scene.id, id: source.id, name: source.name.clone() })
     }
 
-    fn delete_target(&mut self, target: &DeleteTarget) -> Result<(), String> {
+    fn deletion_request(&self, target: DeleteTarget) -> DeleteRequest {
+        DeleteRequest { generation: self.document_generation, target }
+    }
+
+    fn delete_target(&mut self, request: &DeleteRequest) -> Result<(), String> {
+        if request.generation != self.document_generation { return Err("project changed since confirmation opened".into()); }
+        let target = &request.target;
         let active_before = self.document.project.active_scene_id;
         self.document.apply(|project| match target {
             DeleteTarget::Scene { id, name } => {
@@ -137,8 +151,25 @@ impl EditorApp {
         })
     }
 
+    fn creation_form_dirty(&self) -> bool {
+        !self.new_scene_name.is_empty() || !self.new_source_name.is_empty()
+            || !self.new_selector.is_empty() || self.new_kind != SourceKind::Display
+    }
+
     fn has_pending_changes(&self) -> bool {
-        self.document.is_dirty() || self.form_dirty()
+        self.document.is_dirty() || self.form_dirty() || self.creation_form_dirty()
+    }
+
+    fn replace_document(&mut self, document: EditorDocument) {
+        self.document = document;
+        self.document_generation = self.document_generation.wrapping_add(1);
+        self.confirm_delete = None;
+        self.selected_source = None;
+        self.new_scene_name.clear();
+        self.new_source_name.clear();
+        self.new_selector.clear();
+        self.new_kind = SourceKind::Display;
+        self.sync_selection();
     }
 
     fn commit_details(&mut self) -> Result<(), String> {
@@ -186,11 +217,11 @@ impl EditorApp {
 
     fn run_action(&mut self, action: Pending, ctx: &egui::Context) {
         match action {
-            Pending::New => { self.document = EditorDocument::new(); self.selected_source = None; self.sync_selection(); self.message = Some("New project".into()); }
+            Pending::New => { self.replace_document(EditorDocument::new()); self.message = Some("New project".into()); }
             Pending::Open => {
                 if let Some(path) = rfd::FileDialog::new().add_filter("StreamStrike project", &["streamstrike"]).pick_file() {
                     match EditorDocument::open(&path) {
-                        Ok(document) => { self.document = document; self.selected_source = None; self.sync_selection(); self.message = Some("Project opened".into()); }
+                        Ok(document) => { self.replace_document(document); self.message = Some("Project opened".into()); }
                         Err(error) => self.message = Some(format!("Could not open project: {error}")),
                     }
                 }
@@ -280,7 +311,7 @@ impl EditorApp {
             self.report(result, "Scene renamed");
         }
         if ui.add_enabled(self.document.project.scenes.len() > 1, egui::Button::new("Delete scene.")).clicked() {
-            self.confirm_delete = self.active_scene().map(|scene| DeleteTarget::Scene { id: scene.id, name: scene.name.clone() });
+            self.confirm_delete = self.active_scene().map(|scene| self.deletion_request(DeleteTarget::Scene { id: scene.id, name: scene.name.clone() }));
         }
         ui.separator();
         if let Some(id) = self.selected_source {
@@ -299,7 +330,7 @@ impl EditorApp {
                 let result = self.commit_details();
                 self.report(result, "Source updated");
             }
-            if ui.button("Delete source.").clicked() { self.confirm_delete = self.selected_delete_target(); }
+            if ui.button("Delete source.").clicked() { self.confirm_delete = self.selected_delete_target().map(|target| self.deletion_request(target)); }
         } else {
             ui.label(RichText::new("Select a source to edit its settings.").weak());
         }
@@ -309,15 +340,16 @@ impl EditorApp {
         if self.pending.is_some() {
             egui::Window::new("Unsaved changes").collapsible(false).resizable(false).show(ctx, |ui| {
                 ui.label("Save your project before continuing?");
+                if self.creation_form_dirty() { ui.label("New scene or source fields are drafts. Add them or choose Discard."); }
                 ui.horizontal(|ui| {
-                    if ui.button("Save").clicked() && self.save() { if let Some(action) = self.pending.take() { self.run_action(action, ctx); } }
+                    if ui.add_enabled(!self.creation_form_dirty(), egui::Button::new("Save")).clicked() && self.save() { if let Some(action) = self.pending.take() { self.run_action(action, ctx); } }
                     if ui.button("Discard").clicked() { if let Some(action) = self.pending.take() { self.run_action(action, ctx); } }
                     if ui.button("Cancel").clicked() { self.pending = None; }
                 });
             });
         }
         if let Some(target) = self.confirm_delete.clone() {
-            let (title, name) = match &target {
+            let (title, name) = match &target.target {
                 DeleteTarget::Scene { name, .. } => ("Delete scene?", name),
                 DeleteTarget::Source { name, .. } => ("Delete source?", name),
             };
@@ -460,7 +492,7 @@ mod tests {
         let second = app.document.apply(|project| project.add_source(1, "Second", SourceKind::Window, "game")).unwrap();
         app.selected_source = Some(first);
         app.sync_selection();
-        let target = app.selected_delete_target().unwrap();
+        let target = app.deletion_request(app.selected_delete_target().unwrap());
 
         app.selected_source = Some(second);
         app.sync_selection();
@@ -468,7 +500,7 @@ mod tests {
         assert_eq!(app.selected_source, Some(second));
         assert_eq!(app.active_scene().unwrap().sources.iter().map(|source| source.id).collect::<Vec<_>>(), vec![second]);
 
-        let target = app.selected_delete_target().unwrap();
+        let target = app.deletion_request(app.selected_delete_target().unwrap());
         let other_scene = app.document.apply(|project| project.add_scene("Other")).unwrap();
         app.document.apply(|project| project.select_scene(other_scene)).unwrap();
         app.selected_source = None;
@@ -486,7 +518,7 @@ mod tests {
         let id = app.document.apply(|project| project.add_source(1, "Display", SourceKind::Display, "primary")).unwrap();
         app.selected_source = Some(id);
         app.sync_selection();
-        let target = app.selected_delete_target().unwrap();
+        let target = app.deletion_request(app.selected_delete_target().unwrap());
         app.scene_name = "Unapplied scene name".into();
         app.delete_target(&target).unwrap();
         assert_eq!(app.scene_name, "Unapplied scene name");
@@ -500,7 +532,7 @@ mod tests {
         let id = app.document.apply(|project| project.add_source(1, "Display", SourceKind::Display, "primary")).unwrap();
         app.selected_source = Some(id);
         app.sync_selection();
-        let target = app.selected_delete_target().unwrap();
+        let target = app.deletion_request(app.selected_delete_target().unwrap());
         app.document.apply(|project| project.rename_scene(1, "Renamed scene")).unwrap();
         app.document.apply(|project| project.remove_source(id)).unwrap();
         let before = app.document.project.clone();
@@ -513,7 +545,7 @@ mod tests {
     fn scene_deletion_uses_original_scene_after_switch() {
         let mut app = EditorApp::new(EditorDocument::new(), None);
         let original = app.active_scene().unwrap();
-        let target = DeleteTarget::Scene { id: original.id, name: original.name.clone() };
+        let target = app.deletion_request(DeleteTarget::Scene { id: original.id, name: original.name.clone() });
         let second = app.document.apply(|project| project.add_scene("Second")).unwrap();
         app.document.apply(|project| project.select_scene(second)).unwrap();
         app.sync_selection();
@@ -522,6 +554,31 @@ mod tests {
         assert_eq!(app.document.project.active_scene_id, second);
         assert_eq!(app.scene_name, "Unapplied second name");
         assert_eq!(app.document.project.scenes.len(), 1);
+    }
+
+    #[test]
+    fn replacement_waits_for_draft_discard_and_invalidates_old_delete_dialog() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        let id = app.document.apply(|project| project.add_source(1, "Display", SourceKind::Display, "primary")).unwrap();
+        app.selected_source = Some(id);
+        app.sync_selection();
+        let request = app.deletion_request(app.selected_delete_target().unwrap());
+        app.confirm_delete = Some(request.clone());
+        app.new_scene_name = "Draft scene".into();
+        app.new_source_name = "Draft source".into();
+        app.new_selector = "pending".into();
+        app.new_kind = SourceKind::Window;
+        let ctx = egui::Context::default();
+        app.request(Pending::New, &ctx);
+        assert!(app.pending.is_some());
+        assert!(app.creation_form_dirty());
+        assert_eq!(app.new_scene_name, "Draft scene");
+        let action = app.pending.take().unwrap();
+        app.run_action(action, &ctx);
+        assert!(app.confirm_delete.is_none());
+        assert!(!app.creation_form_dirty());
+        assert!(app.delete_target(&request).is_err());
+        assert_eq!(app.document.project, streamstrike::Project::new());
     }
 }
 
