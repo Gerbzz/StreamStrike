@@ -184,6 +184,7 @@ impl EditorApp {
             ui.label("New scene");
             ui.text_edit_singleline(&mut self.new_scene_name);
             if ui.button("Add scene").clicked() {
+                if let Err(error) = self.commit_details() { self.message = Some(format!("Finish current edits: {error}")); return; }
                 let name = self.new_scene_name.trim().to_owned();
                 let result = self.document.apply(|project| project.add_scene(&name));
                 match result {
@@ -218,6 +219,7 @@ impl EditorApp {
         ui.text_edit_singleline(&mut self.new_selector);
         ui.label(RichText::new("Enter the intended display, window, or audio device selector.").weak().small());
         if ui.button("Add source").clicked() {
+            if let Err(error) = self.commit_details() { self.message = Some(format!("Finish current edits: {error}")); return; }
             let (scene, name, kind, selector) = (self.document.project.active_scene_id, self.new_source_name.trim().to_owned(), self.new_kind, self.new_selector.trim().to_owned());
             match self.document.apply(|project| project.add_source(scene, &name, kind, &selector)) {
                 Ok(id) => { self.selected_source = Some(id); self.sync_selection(); self.new_source_name.clear(); self.new_selector.clear(); self.message = Some("Source added".into()); }
