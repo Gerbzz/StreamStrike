@@ -87,7 +87,37 @@ impl EditorApp {
         self.message = Some(match result { Ok(()) => success.into(), Err(error) => format!("Could not complete action: {error}") });
     }
 
+    fn form_dirty(&self) -> bool {
+        let Some(scene) = self.active_scene() else { return false; };
+        if self.scene_name != scene.name { return true; }
+        scene.sources.iter().find(|source| Some(source.id) == self.selected_source).is_some_and(|source| {
+            self.source_name != source.name || self.selector != source.selector || self.visible != source.visible
+                || self.muted != source.muted || self.gain_db != source.gain_db
+        })
+    }
+
+    fn has_pending_changes(&self) -> bool {
+        self.document.is_dirty() || self.form_dirty()
+    }
+
+    fn commit_details(&mut self) -> Result<(), String> {
+        if !self.form_dirty() { return Ok(()); }
+        let (scene_id, scene_name) = (self.document.project.active_scene_id, self.scene_name.trim().to_owned());
+        let source = self.selected_source.map(|id| (id, self.source_name.trim().to_owned(), self.selector.trim().to_owned(), self.visible, self.muted, self.gain_db, self.source_kind));
+        self.document.apply(|project| {
+            project.rename_scene(scene_id, &scene_name)?;
+            if let Some((id, name, selector, visible, muted, gain, kind)) = source {
+                project.edit_source(id, &name, &selector, visible)?;
+                if matches!(kind, SourceKind::Microphone | SourceKind::DesktopAudio) { project.set_audio(id, muted, gain)?; }
+            }
+            Ok(())
+        })?;
+        self.sync_selection();
+        Ok(())
+    }
+
     fn save_as(&mut self) -> bool {
+        if let Err(error) = self.commit_details() { self.message = Some(format!("Could not save: {error}")); return false; }
         let Some(path) = rfd::FileDialog::new().add_filter("StreamStrike project", &["streamstrike"]).set_file_name("untitled.streamstrike").save_file() else { return false; };
         let path = path.with_extension("streamstrike");
         let result = self.document.save_as(&path);
@@ -97,6 +127,7 @@ impl EditorApp {
     }
 
     fn save(&mut self) -> bool {
+        if let Err(error) = self.commit_details() { self.message = Some(format!("Could not save: {error}")); return false; }
         if self.document.path.is_none() { return self.save_as(); }
         let result = self.document.save();
         let ok = result.is_ok();
@@ -105,7 +136,7 @@ impl EditorApp {
     }
 
     fn request(&mut self, action: Pending, ctx: &egui::Context) {
-        if self.document.is_dirty() {
+        if self.has_pending_changes() {
             self.pending = Some(action);
         } else {
             self.run_action(action, ctx);
@@ -142,6 +173,7 @@ impl EditorApp {
             let scenes: Vec<_> = self.document.project.scenes.iter().map(|scene| (scene.id, scene.name.clone(), scene.sources.len())).collect();
             for (id, name, count) in scenes {
                 if ui.selectable_label(self.document.project.active_scene_id == id, format!("{name}  �  {count}")).clicked() {
+                    if let Err(error) = self.commit_details() { self.message = Some(format!("Finish scene or source edits: {error}")); continue; }
                     let result = self.document.apply(|project| project.select_scene(id));
                     self.report(result, "Scene selected");
                     self.selected_source = None;
@@ -171,6 +203,7 @@ impl EditorApp {
         for (id, name, kind, visible) in sources {
             let label = format!("{}  {}  �  {}", if visible { "?" } else { "	" }, name, kind_label(kind));
             if ui.selectable_label(self.selected_source == Some(id), label).clicked() {
+                if let Err(error) = self.commit_details() { self.message = Some(format!("Finish source edits: {error}")); continue; }
                 self.selected_source = Some(id);
                 self.sync_selection();
             }
@@ -218,8 +251,7 @@ impl EditorApp {
                 ui.add(egui::Slider::new(&mut self.gain_db, -96.0..=12.0).text("Gain dB"));
             }
             if ui.button("Apply source changes").clicked() {
-                let (name, selector, visible, muted, gain, kind) = (self.source_name.trim().to_owned(), self.selector.trim().to_owned(), self.visible, self.muted, self.gain_db, self.source_kind);
-                let result = self.document.apply(|project| { project.edit_source(id, &name, &selector, visible)?; if matches!(kind, SourceKind::Microphone | SourceKind::DesktopAudio) { project.set_audio(id, muted, gain)?; } Ok(()) });
+                let result = self.commit_details();
                 self.report(result, "Source updated");
             }
             if ui.button("Delete source.").clicked() { self.confirm_delete = Some(false); }
@@ -314,7 +346,7 @@ impl eframe::App for EditorApp {
                 if ui.button("Save").clicked() { self.save(); }
                 if ui.button("Save as.").clicked() { self.save_as(); }
                 if ui.button("About").clicked() { self.about = true; }
-                if self.document.is_dirty() { ui.label(RichText::new("? Unsaved").color(Color32::from_rgb(242, 176, 85))); }
+                if self.has_pending_changes() { ui.label(RichText::new("? Unsaved").color(Color32::from_rgb(242, 176, 85))); }
             });
             ui.label(RichText::new(self.document.path.as_ref().map(|path| path.display().to_string()).unwrap_or_else(|| "Untitled project".into())).weak().small());
         });
@@ -357,5 +389,26 @@ fn main() -> eframe::Result {
     let document = match open { Some(path) => EditorDocument::open(&path).unwrap_or_else(|error| { eprintln!("cannot open {}: {error}", path.display()); std::process::exit(1); }), None => EditorDocument::new() };
     let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1160.0, 740.0]).with_min_inner_size([900.0, 560.0]), renderer: eframe::Renderer::Wgpu, ..Default::default() };
     eframe::run_native("StreamStrike", options, Box::new(move |_cc| Ok(Box::new(EditorApp::new(document, capture)))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn staged_details_are_dirty_and_rejected_atomically() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        app.scene_name = "Gameplay".into();
+        assert!(app.has_pending_changes());
+        app.commit_details().unwrap();
+        assert_eq!(app.active_scene().unwrap().name, "Gameplay");
+        let id = app.document.apply(|project| project.add_source(1, "Display", SourceKind::Display, "primary")).unwrap();
+        app.selected_source = Some(id);
+        app.sync_selection();
+        app.source_name.clear();
+        assert!(app.has_pending_changes());
+        assert!(app.commit_details().is_err());
+        assert_eq!(app.active_scene().unwrap().sources[0].name, "Display");
+    }
 }
 
