@@ -18,34 +18,65 @@ jobs:
       - name: Test project core, document state, and editor source
         shell: pwsh
         run: |
-          cargo test --all-targets
+          cargo test --locked --all-targets
           if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed' }
-          cargo build --bin streamstrike-editor
+          cargo build --locked --bin streamstrike-editor
           if ($LASTEXITCODE -ne 0) { throw 'Native editor build failed' }
-      - name: Print generated lockfile for branch review
-        shell: pwsh
-        run: |
-          'LOCK_BEGIN'
-          Get-Content Cargo.lock
-          'LOCK_END'
       - name: Attempt real native app-only capture
         shell: pwsh
         run: |
+          $signature = @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class EditorWindow {
+            [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr handle, int command);
+            [DllImport("user32.dll")] public static extern bool EnumWindows(WindowCallback callback, IntPtr data);
+            [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+            public delegate bool WindowCallback(IntPtr handle, IntPtr data);
+            public static IntPtr FindWindow(int processId) {
+              IntPtr found = IntPtr.Zero;
+              EnumWindows((handle, data) => {
+                uint owner;
+                GetWindowThreadProcessId(handle, out owner);
+                if (owner == (uint)processId) { found = handle; return false; }
+                return true;
+              }, IntPtr.Zero);
+              return found;
+            }
+          }
+          '@
+          Add-Type -TypeDefinition $signature
           $folder = Join-Path $env:RUNNER_TEMP 'streamstrike-editor-evidence'
           New-Item -ItemType Directory -Path $folder -Force | Out-Null
           $image = Join-Path $folder 'streamstrike-editor.png'
+          $stderr = Join-Path $folder 'editor-stderr.txt'
+          $stdout = Join-Path $folder 'editor-stdout.txt'
           $sample = Join-Path $env:GITHUB_WORKSPACE 'docs\evidence\demo.streamstrike'
           $app = Join-Path $env:GITHUB_WORKSPACE 'target\debug\streamstrike-editor.exe'
-          $process = Start-Process -FilePath $app -ArgumentList @('--open', $sample, '--capture', $image) -WindowStyle Hidden -PassThru
-          try { Wait-Process -Id $process.Id -Timeout 30 -ErrorAction SilentlyContinue } finally {
+          $process = Start-Process -FilePath $app -ArgumentList @('--open', $sample, '--capture', $image) -WindowStyle Hidden -RedirectStandardError $stderr -RedirectStandardOutput $stdout -PassThru
+          try {
+            for ($try = 0; $try -lt 20; $try++) {
+              Start-Sleep -Milliseconds 500
+              $process.Refresh()
+              if ($process.HasExited) { break }
+              $window = [EditorWindow]::FindWindow($process.Id)
+              if ($window -ne [IntPtr]::Zero) {
+                [EditorWindow]::ShowWindow($window, 5) | Out-Null
+                break
+              }
+            }
+            Wait-Process -Id $process.Id -Timeout 30 -ErrorAction SilentlyContinue
+          } finally {
+            $process.Refresh()
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
+          $process.Refresh()
           if (Test-Path -LiteralPath $image) {
             $file = Get-Item -LiteralPath $image
             if ($file.Length -lt 10000 -or $file.Length -gt 5MB) { throw 'Captured PNG has unexpected size' }
             "Native app-only screenshot from $env:GITHUB_SHA; synthetic selectors; no devices opened." | Set-Content -LiteralPath (Join-Path $folder 'provenance.txt')
           } else {
-            "Native window capture unavailable on hosted runner at $env:GITHUB_SHA; source tests and build are separate evidence." | Set-Content -LiteralPath (Join-Path $folder 'provenance.txt')
+            "Native window capture unavailable at $env:GITHUB_SHA; process exit $($process.ExitCode)." | Set-Content -LiteralPath (Join-Path $folder 'provenance.txt')
           }
       - uses: actions/upload-artifact@v4
         with:
@@ -54,3 +85,34 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+
+  capture-evidence:
+    needs: editor
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: streamstrike-editor-${{ github.sha }}
+          path: capture
+      - name: Verify app-only image contains rendered content
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $path = Join-Path (Get-Location) 'capture/streamstrike-editor.png'
+          if (-not (Test-Path -LiteralPath $path)) {
+            Get-Content capture/provenance.txt
+            if (Test-Path capture/editor-stderr.txt) { Get-Content capture/editor-stderr.txt }
+            throw 'Native screenshot unavailable; editor build and tests are recorded in the editor job'
+          }
+          $bitmap = [System.Drawing.Bitmap]::FromFile($path)
+          try {
+            if ($bitmap.Width -lt 900 -or $bitmap.Height -lt 500) { throw 'App image dimensions are too small' }
+            $colors = [System.Collections.Generic.HashSet[int]]::new()
+            for ($x = 40; $x -lt $bitmap.Width; $x += 47) {
+              for ($y = 40; $y -lt $bitmap.Height; $y += 47) {
+                [void]$colors.Add($bitmap.GetPixel($x, $y).ToArgb())
+              }
+            }
+            if ($colors.Count -lt 8) { throw "App image lacks rendered detail: $($colors.Count) colors" }
+            "Native image $($bitmap.Width)x$($bitmap.Height), sampled colors $($colors.Count), commit $env:GITHUB_SHA"
+          } finally { $bitmap.Dispose() }
