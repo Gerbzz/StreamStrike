@@ -9,6 +9,12 @@ enum Pending {
     Close,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum DeleteTarget {
+    Scene { id: u64, name: String },
+    Source { scene_id: u64, id: u64, name: String },
+}
+
 struct EditorApp {
     document: EditorDocument,
     selected_source: Option<u64>,
@@ -25,7 +31,7 @@ struct EditorApp {
     new_kind: SourceKind,
     message: Option<String>,
     pending: Option<Pending>,
-    confirm_delete: Option<bool>,
+    confirm_delete: Option<DeleteTarget>,
     about: bool,
     about_logo: Option<egui::TextureHandle>,
     capture: Option<PathBuf>,
@@ -68,6 +74,10 @@ impl EditorApp {
 
     fn sync_selection(&mut self) {
         self.scene_name = self.active_scene().map(|scene| scene.name.clone()).unwrap_or_default();
+        self.sync_source_selection();
+    }
+
+    fn sync_source_selection(&mut self) {
         let source = self.active_scene().and_then(|scene| scene.sources.iter().find(|source| Some(source.id) == self.selected_source)).cloned();
         if let Some(source) = source {
             self.source_name = source.name.clone();
@@ -81,6 +91,37 @@ impl EditorApp {
             self.source_name.clear();
             self.selector.clear();
         }
+    }
+
+    fn selected_delete_target(&self) -> Option<DeleteTarget> {
+        let scene = self.active_scene()?;
+        let source = scene.sources.iter().find(|source| Some(source.id) == self.selected_source)?;
+        Some(DeleteTarget::Source { scene_id: scene.id, id: source.id, name: source.name.clone() })
+    }
+
+    fn delete_target(&mut self, target: &DeleteTarget) -> Result<(), String> {
+        let active_before = self.document.project.active_scene_id;
+        self.document.apply(|project| match target {
+            DeleteTarget::Scene { id, name } => {
+                let scene = project.scenes.iter().find(|scene| scene.id == *id).ok_or("scene no longer exists")?;
+                if scene.name != *name { return Err("scene changed since confirmation opened".into()); }
+                project.remove_scene(*id)
+            }
+            DeleteTarget::Source { scene_id, id, name } => {
+                let scene = project.scenes.iter().find(|scene| scene.id == *scene_id).ok_or("scene no longer exists")?;
+                let source = scene.sources.iter().find(|source| source.id == *id).ok_or("source no longer exists")?;
+                if source.name != *name { return Err("source changed since confirmation opened".into()); }
+                project.remove_source(*id)
+            }
+        })?;
+        if self.document.project.active_scene_id != active_before {
+            self.selected_source = None;
+            self.sync_selection();
+        } else if matches!(target, DeleteTarget::Source { id, .. } if self.selected_source == Some(*id)) {
+            self.selected_source = None;
+            self.sync_source_selection();
+        }
+        Ok(())
     }
 
     fn report(&mut self, result: Result<(), String>, success: &str) {
@@ -238,7 +279,9 @@ impl EditorApp {
             let result = self.document.apply(|project| project.rename_scene(id, &name));
             self.report(result, "Scene renamed");
         }
-        if ui.add_enabled(self.document.project.scenes.len() > 1, egui::Button::new("Delete scene.")).clicked() { self.confirm_delete = Some(true); }
+        if ui.add_enabled(self.document.project.scenes.len() > 1, egui::Button::new("Delete scene.")).clicked() {
+            self.confirm_delete = self.active_scene().map(|scene| DeleteTarget::Scene { id: scene.id, name: scene.name.clone() });
+        }
         ui.separator();
         if let Some(id) = self.selected_source {
             ui.strong("Selected source");
@@ -256,7 +299,7 @@ impl EditorApp {
                 let result = self.commit_details();
                 self.report(result, "Source updated");
             }
-            if ui.button("Delete source.").clicked() { self.confirm_delete = Some(false); }
+            if ui.button("Delete source.").clicked() { self.confirm_delete = self.selected_delete_target(); }
         } else {
             ui.label(RichText::new("Select a source to edit its settings.").weak());
         }
@@ -273,20 +316,17 @@ impl EditorApp {
                 });
             });
         }
-        if let Some(scene) = self.confirm_delete {
-            egui::Window::new(if scene { "Delete scene?" } else { "Delete source?" }).collapsible(false).resizable(false).show(ctx, |ui| {
-                ui.label("This removes the item from the project. Save to keep the change.");
+        if let Some(target) = self.confirm_delete.clone() {
+            let (title, name) = match &target {
+                DeleteTarget::Scene { name, .. } => ("Delete scene?", name),
+                DeleteTarget::Source { name, .. } => ("Delete source?", name),
+            };
+            egui::Window::new(title).collapsible(false).resizable(false).show(ctx, |ui| {
+                ui.label(format!("Remove "{name}" from this project? Save to keep the change."));
                 ui.horizontal(|ui| {
                     if ui.button("Delete").clicked() {
-                        let result = if scene {
-                            let id = self.document.project.active_scene_id;
-                            self.document.apply(|project| project.remove_scene(id))
-                        } else {
-                            self.document.apply(|project| project.remove_source(self.selected_source.expect("source selected")))
-                        };
+                        let result = self.delete_target(&target);
                         self.report(result, "Item deleted");
-                        self.selected_source = None;
-                        self.sync_selection();
                         self.confirm_delete = None;
                     }
                     if ui.button("Cancel").clicked() { self.confirm_delete = None; }
@@ -411,6 +451,77 @@ mod tests {
         assert!(app.has_pending_changes());
         assert!(app.commit_details().is_err());
         assert_eq!(app.active_scene().unwrap().sources[0].name, "Display");
+    }
+
+    #[test]
+    fn deletion_uses_original_source_after_scene_or_selection_changes() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        let first = app.document.apply(|project| project.add_source(1, "First", SourceKind::Display, "primary")).unwrap();
+        let second = app.document.apply(|project| project.add_source(1, "Second", SourceKind::Window, "game")).unwrap();
+        app.selected_source = Some(first);
+        app.sync_selection();
+        let target = app.selected_delete_target().unwrap();
+
+        app.selected_source = Some(second);
+        app.sync_selection();
+        app.delete_target(&target).unwrap();
+        assert_eq!(app.selected_source, Some(second));
+        assert_eq!(app.active_scene().unwrap().sources.iter().map(|source| source.id).collect::<Vec<_>>(), vec![second]);
+
+        let target = app.selected_delete_target().unwrap();
+        let other_scene = app.document.apply(|project| project.add_scene("Other")).unwrap();
+        app.document.apply(|project| project.select_scene(other_scene)).unwrap();
+        app.selected_source = None;
+        app.sync_selection();
+        app.scene_name = "Unapplied other scene name".into();
+        app.delete_target(&target).unwrap();
+        assert_eq!(app.document.project.active_scene_id, other_scene);
+        assert_eq!(app.scene_name, "Unapplied other scene name");
+        assert!(app.document.project.scenes[0].sources.is_empty());
+    }
+
+    #[test]
+    fn deletion_preserves_unrelated_staged_scene_name() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        let id = app.document.apply(|project| project.add_source(1, "Display", SourceKind::Display, "primary")).unwrap();
+        app.selected_source = Some(id);
+        app.sync_selection();
+        let target = app.selected_delete_target().unwrap();
+        app.scene_name = "Unapplied scene name".into();
+        app.delete_target(&target).unwrap();
+        assert_eq!(app.scene_name, "Unapplied scene name");
+        assert!(app.form_dirty());
+        assert_eq!(app.selected_source, None);
+    }
+
+    #[test]
+    fn missing_or_changed_target_does_not_delete_another_item() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        let id = app.document.apply(|project| project.add_source(1, "Display", SourceKind::Display, "primary")).unwrap();
+        app.selected_source = Some(id);
+        app.sync_selection();
+        let target = app.selected_delete_target().unwrap();
+        app.document.apply(|project| project.rename_scene(1, "Renamed scene")).unwrap();
+        app.document.apply(|project| project.remove_source(id)).unwrap();
+        let before = app.document.project.clone();
+        assert!(app.delete_target(&target).is_err());
+        assert_eq!(app.document.project, before);
+        assert!(app.document.is_dirty());
+    }
+
+    #[test]
+    fn scene_deletion_uses_original_scene_after_switch() {
+        let mut app = EditorApp::new(EditorDocument::new(), None);
+        let original = app.active_scene().unwrap();
+        let target = DeleteTarget::Scene { id: original.id, name: original.name.clone() };
+        let second = app.document.apply(|project| project.add_scene("Second")).unwrap();
+        app.document.apply(|project| project.select_scene(second)).unwrap();
+        app.sync_selection();
+        app.scene_name = "Unapplied second name".into();
+        app.delete_target(&target).unwrap();
+        assert_eq!(app.document.project.active_scene_id, second);
+        assert_eq!(app.scene_name, "Unapplied second name");
+        assert_eq!(app.document.project.scenes.len(), 1);
     }
 }
 
