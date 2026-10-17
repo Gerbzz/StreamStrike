@@ -27,8 +27,10 @@ struct EditorApp {
     pending: Option<Pending>,
     confirm_delete: Option<bool>,
     about: bool,
+    about_logo: Option<egui::TextureHandle>,
     capture: Option<PathBuf>,
     frames: u32,
+    allow_close: bool,
 }
 
 impl EditorApp {
@@ -51,8 +53,10 @@ impl EditorApp {
             pending: None,
             confirm_delete: None,
             about: false,
+            about_logo: None,
             capture,
             frames: 0,
+            allow_close: false,
         };
         app.sync_selection();
         app
@@ -64,7 +68,7 @@ impl EditorApp {
 
     fn sync_selection(&mut self) {
         self.scene_name = self.active_scene().map(|scene| scene.name.clone()).unwrap_or_default();
-        let source = self.active_scene().and_then(|scene| scene.sources.iter().find(|source| Some(source.id) == self.selected_source));
+        let source = self.active_scene().and_then(|scene| scene.sources.iter().find(|source| Some(source.id) == self.selected_source)).cloned();
         if let Some(source) = source {
             self.source_name = source.name.clone();
             self.selector = source.selector.clone();
@@ -119,7 +123,7 @@ impl EditorApp {
                     }
                 }
             }
-            Pending::Close => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            Pending::Close => { self.allow_close = true; ctx.send_viewport_cmd(egui::ViewportCommand::Close); }
         }
     }
 
@@ -256,8 +260,16 @@ impl EditorApp {
             });
         }
         if self.about {
+            if self.about_logo.is_none() {
+                if let Ok(bitmap) = image::load_from_memory(include_bytes!("../../assets/branding/PWDS-logo.png")) {
+                    let rgba = bitmap.to_rgba8();
+                    let size = [rgba.width() as usize, rgba.height() as usize];
+                    self.about_logo = Some(ctx.load_texture("pwds-about", egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw()), Default::default()));
+                }
+            }
             egui::Window::new("About StreamStrike").open(&mut self.about).resizable(false).show(ctx, |ui| {
                 ui.heading("StreamStrike");
+                if let Some(logo) = &self.about_logo { ui.image((logo.id(), egui::vec2(180.0, 77.0))); }
                 ui.label("Project and source editor by PWDS");
                 ui.label("Scene and source settings are saved locally.");
                 ui.label("Capture, recording, and streaming are not available yet.");
@@ -275,6 +287,7 @@ impl EditorApp {
                     self.message = Some(format!("Screenshot failed: {error}"));
                 } else {
                     self.capture = None;
+                    self.allow_close = true;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             }
@@ -287,7 +300,7 @@ impl EditorApp {
 
 impl eframe::App for EditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if ctx.input(|input| input.viewport().close_requested()) {
+        if !self.allow_close && ctx.input(|input| input.viewport().close_requested()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             if self.pending.is_none() { self.request(Pending::Close, ctx); }
         }
