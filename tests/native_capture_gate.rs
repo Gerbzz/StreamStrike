@@ -19,6 +19,13 @@ fn native_editor_png_has_rendered_detail() {
             colors.insert(rgba.get_pixel(x, y).0);
         }
     }
+    let mut denser_colors = HashSet::new();
+    for x in (0..width).step_by(11) {
+        for y in (0..height).step_by(11) {
+            denser_colors.insert(rgba.get_pixel(x, y).0);
+        }
+    }
+    println!("Native image diagnostics: coarse colors={}, dense colors={}", colors.len(), denser_colors.len());
     assert!(colors.len() >= 8, "native image lacks rendered detail: {} colors", colors.len());
     println!("Native editor PNG {width}x{height}, {} sampled colors", colors.len());
 }
