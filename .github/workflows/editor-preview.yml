@@ -133,6 +133,11 @@ jobs:
           command -v xvfb-run
           ls -l /usr/share/vulkan/icd.d || true
           ldconfig -p | grep -E 'libvulkan|libX11' || true
+      - name: Resolve Linux feature lock additions for review
+        shell: bash
+        run: |
+          cargo metadata --format-version 1 > /dev/null
+          git diff -- Cargo.lock
       - name: Build native Linux editor
         run: cargo build --locked --bin streamstrike-editor
       - name: Capture actual native editor frame under Xvfb
