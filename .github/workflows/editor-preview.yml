@@ -2,7 +2,7 @@ name: Native project editor
 
 on:
   push:
-    branches: [codex/streamstrike-project-editor]
+    branches: [codex/streamstrike-project-editor, codex/streamstrike-native-capture-20261018]
   pull_request:
     branches: [main]
 
