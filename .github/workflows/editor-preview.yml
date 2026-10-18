@@ -147,10 +147,6 @@ jobs:
           STREAMSTRIKE_NATIVE_CAPTURE_PATH="$png" cargo test --locked --test native_capture_gate native_editor_png_has_rendered_detail -- --exact --ignored --nocapture
           printf 'Actual StreamStrike WGPU editor at %s; synthetic selectors; software Vulkan Lavapipe under Xvfb; no devices opened.\n' "$GITHUB_SHA" > "$folder/provenance.txt"
           sha256sum "$png"
-          echo PNG_BASE64_BEGIN
-          base64 -w0 "$png"
-          echo
-          echo PNG_BASE64_END
           git diff --exit-code -- Cargo.lock
       - uses: actions/upload-artifact@v4
         if: always()
