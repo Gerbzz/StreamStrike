@@ -472,7 +472,7 @@ fn main() -> eframe::Result {
         }
     }
     let document = match open { Some(path) => EditorDocument::open(&path).unwrap_or_else(|error| { eprintln!("cannot open {}: {error}", path.display()); std::process::exit(1); }), None => EditorDocument::new() };
-    let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1160.0, 740.0]).with_min_inner_size([900.0, 560.0]), renderer: eframe::Renderer::Wgpu, ..Default::default() };
+    let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1160.0, 740.0]).with_min_inner_size([900.0, 560.0]), renderer: eframe::Renderer::Glow, ..Default::default() };
     eframe::run_native("StreamStrike", options, Box::new(move |_cc| Ok(Box::new(EditorApp::new(document, capture)))))
 }
 

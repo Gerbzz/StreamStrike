@@ -15,6 +15,12 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve Glow feature lock additions for review
+        shell: pwsh
+        run: |
+          cargo metadata --format-version 1 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Could not resolve Glow feature' }
+          git diff -- Cargo.lock
       - name: Test project core, document state, and editor source
         shell: pwsh
         run: |
