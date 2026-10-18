@@ -116,3 +116,41 @@ jobs:
             if ($colors.Count -lt 8) { throw "App image lacks rendered detail: $($colors.Count) colors" }
             "Native image $($bitmap.Width)x$($bitmap.Height), sampled colors $($colors.Count), commit $env:GITHUB_SHA"
           } finally { $bitmap.Dispose() }
+
+  linux-capture-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+      WGPU_BACKEND: vulkan
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect preinstalled display and software Vulkan support
+        shell: bash
+        run: |
+          command -v Xvfb
+          command -v xvfb-run
+          ls -l /usr/share/vulkan/icd.d || true
+          ldconfig -p | grep -E 'libvulkan|libX11' || true
+      - name: Build native Linux editor
+        run: cargo build --locked --bin streamstrike-editor
+      - name: Capture actual native editor frame under Xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/streamstrike-linux"
+          timeout 40s xvfb-run -a -s '-screen 0 1280x800x24' \
+            "$PWD/target/debug/streamstrike-editor" \
+            --open "$PWD/docs/evidence/demo.streamstrike" \
+            --capture "$RUNNER_TEMP/streamstrike-linux/streamstrike-editor.png"
+          test -s "$RUNNER_TEMP/streamstrike-linux/streamstrike-editor.png"
+          file "$RUNNER_TEMP/streamstrike-linux/streamstrike-editor.png"
+          sha256sum "$RUNNER_TEMP/streamstrike-linux/streamstrike-editor.png"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: streamstrike-linux-native-${{ github.sha }}
+          path: ${{ runner.temp }}/streamstrike-linux/
+          if-no-files-found: warn
+          retention-days: 1
