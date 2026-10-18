@@ -108,53 +108,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends libxkbcommon-x11-0 mesa-vulkan-drivers
           ldconfig -p | grep 'libxkbcommon-x11.so.0'
-          icd="$(dpkg -L mesa-vulkan-drivers | grep -E '/lvp_icd[^/]*\.json      - name: Verify clean locked dependency graph
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo metadata --locked --format-version 1 > /dev/null
-          git diff --exit-code -- Cargo.lock
-      - name: Test source and build actual native editor
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo test --locked --all-targets
-          cargo build --locked --bin streamstrike-editor
-          git diff --exit-code -- Cargo.lock
-      - name: Capture actual WGPU editor under Xvfb
-        shell: bash
-        run: |
-          set -euo pipefail
-          folder="$RUNNER_TEMP/streamstrike-linux"
-          mkdir -p "$folder"
-          png="$folder/streamstrike-editor.png"
-          timeout 40s xvfb-run -a -s '-screen 0 1280x800x24' \
-            "$PWD/target/debug/streamstrike-editor" \
-            --open "$PWD/docs/evidence/demo.streamstrike" \
-            --capture "$png" > "$folder/editor-stdout.txt" 2> "$folder/editor-stderr.txt" || {
-              cat "$folder/editor-stderr.txt"
-              exit 1
-            }
-          test -s "$png"
-          bytes="$(stat -c%s "$png")"
-          test "$bytes" -ge 10000
-          test "$bytes" -le 5242880
-          STREAMSTRIKE_NATIVE_CAPTURE_PATH="$png" cargo test --locked --test native_capture_gate native_editor_png_has_rendered_detail -- --exact --ignored --nocapture
-          printf 'Actual StreamStrike WGPU editor at %s; synthetic selectors; software Vulkan Lavapipe under Xvfb; no devices opened.\n' "$GITHUB_SHA" > "$folder/provenance.txt"
-          sha256sum "$png"
-          echo PNG_BASE64_BEGIN
-          base64 -w0 "$png"
-          echo
-          echo PNG_BASE64_END
-          git diff --exit-code -- Cargo.lock
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: streamstrike-linux-native-${{ github.sha }}
-          path: ${{ runner.temp }}/streamstrike-linux/
-          if-no-files-found: warn
-          retention-days: 1
- | head -n 1)"
+          icd="$(dpkg -L mesa-vulkan-drivers | grep -E '/lvp_icd[^/]*\.json$' | head -n 1)"
           test -n "$icd"
           test -f "$icd"
           ls -l "$icd"
