@@ -19,7 +19,11 @@ StreamStrike is laying out the projects behind a future recorder and streamer. C
 
 ## Current status
 
-Source-only Rust project core and CLI. Source descriptions do not open devices, and there is no preview, recording, replay buffer, mixer signal, or streaming yet. A media engine and native editor remain future work.
+This draft branch adds a native Rust scene/source project editor alongside the CLI. It opens, creates, edits, validates, and saves real `.streamstrike` projects. Source selectors are descriptions only: no display or audio device is opened. There is no live preview, recording, replay buffer, mixer signal, or streaming.
+
+## Run the editor
+
+On a Windows desktop with Rust installed, run `cargo run --bin streamstrike-editor`. Use New, Open, Save, and Save as to manage `.streamstrike` files; the Scenes and Sources panes edit the same validated project model as the CLI. `--open PATH.streamstrike` opens a project at launch. The toolbar supports Ctrl+N, Ctrl+O, and Ctrl+S. Unsaved project changes prompt before New, Open, or Close. A hosted native screenshot attempt uses `--capture OUTPUT.png` with the included synthetic project; it does not exercise physical devices.
 
 ## Verified Windows CLI run
 
@@ -35,22 +39,22 @@ streamstrike set-audio demo.streamstrike 4 false -6
 streamstrike show demo.streamstrike
 ```
 
-The [actual CLI transcript](docs/evidence/windows-cli-transcript.txt), [resulting project](docs/evidence/demo.streamstrike), and [capture provenance](docs/evidence/README.md) are retained in this repository. For example, the executable reported `added source ID 4; selector is stored but not opened` and `stored audio settings for source ID 4; no audio device is opened`. This is command output, not a native app screenshot; there is no native editor to capture yet.
+The [actual CLI transcript](docs/evidence/windows-cli-transcript.txt), [resulting project](docs/evidence/demo.streamstrike), and [capture provenance](docs/evidence/README.md) are retained in this repository. For example, the executable reported `added source ID 4; selector is stored but not opened` and `stored audio settings for source ID 4; no audio device is opened`. This is command output from the earlier CLI checkpoint. The editor branch has its own hosted build and app-only capture attempt; check that workflow's result before treating any image as native evidence.
 
 `new` refuses an existing path. Edits validate the full project and use a staging file and old-project backup. If a save is interrupted, the program leaves sidecars for inspection and refuses to overwrite them. The format is limited to 1 MiB. Nothing in this CLI records audio/video or contacts a service.
 
 ## Next functional slice
 
-1. Pin a verified engine/API combination and document all license, notice, runtime, and platform obligations. Keep the engine behind a narrow Rust adapter with explicit lifecycle and error mapping.
-2. Build a native scene/source editor that drives the project model. Resolve a single display or window and microphone/desktop audio devices through the engine. Show a real preview and real meters, or show an actionable unsupported/device error.
-3. Start and stop bounded local H.264 recording, verify the resulting file, and save/reload the project. Test device loss, low disk space, and recording finalization before claiming recording works.
-4. Add replay buffering and then streaming after recording is stable. Design output ownership so a failed stream cannot silently interrupt local recording.
+1. Review and test the native editor on a real desktop, including keyboard focus, dialogs, and save recovery.
+2. Pin a verified engine/API combination and document license, notice, runtime, and platform obligations. Resolve real display, window, and audio devices through that engine and report unavailable devices clearly.
+3. Show a real preview and meters, then start and stop bounded local recording. Verify the output and test device loss, disk-full behavior, and finalization.
+4. Add replay buffering and streaming only after recording is stable.
 
 See [DECISIONS.md](docs/DECISIONS.md) for options and dependency status. No license is granted for new StreamStrike source by this checkpoint; choose an explicit project license before distribution. No OBS Project affiliation is claimed.
 
 ## Development direction
 
-The next milestone is a Windows native scene/source editor connected to a verified media engine. `libobs` is a researched candidate, not a chosen or bundled dependency; a future integration would include C/C++ code and require a license and runtime audit. The current checkpoint has no native launch UI or approved StreamStrike logo asset. See [DECISIONS.md](docs/DECISIONS.md). No first-party source license grant is made by this checkpoint.
+The native editor is a project setup tool; a media engine is the next milestone. `libobs` is a researched candidate, not a chosen or bundled dependency. The interface uses the StreamStrike name and shows the existing approved PWDS mark in About; a distinct StreamStrike icon remains undecided. See [DECISIONS.md](docs/DECISIONS.md). No first-party source license grant is made by this checkpoint.
 
 ## PWDS brand artwork
 
