@@ -1,0 +1,28 @@
+{
+  "app": "StreamStrike",
+  "created_utc": "2026-10-23",
+  "source": "Original SVG artwork created for this application at the user's request.",
+  "method": "Original manually authored SVG paths/polygons; geometry-only, two solid colors; no gradients, shadows, text, animal, embedded bitmap, stock artwork, or external references.",
+  "description": "Interlocking S ribbon with two broadcast arcs.",
+  "renderer": "Inkscape 1.4 (e7c3feb100, 2024-10-09), native SVG export at 1024 x 1024 pixels, transparent background opacity 0; no raster image editing.",
+  "license": "No additional licence grant stated",
+  "scope": "Product artwork in the README. Existing publisher marks, screenshots, runtime artwork, and packaged icons remain unchanged.",
+  "assets": {
+    "svg": {
+      "path": "assets/branding/StreamStrike-logo.svg",
+      "sha256": "33a15fe325fa49e925904c4785eadf00fbe181ca0eb9f13b5f09fe2b49554ae6",
+      "git_blob_sha": "425e0a0d031665788ea0b25ffac89f82e36d4340"
+    },
+    "png": {
+      "path": "assets/branding/StreamStrike-logo.png",
+      "sha256": "86acca5004fbe90a471230159b452d3eb4a3663db30dac5d26523f43f470d926",
+      "git_blob_sha": "856e5f3624d017d049a46dfb5f2275b9415880d8",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "mode": "RGBA",
+      "decoded_rgba_sha256": "2f39c3578eab88ceee0cd6927e0a18f26408c7e4b68ab77486fc8b7fbc9c3eaa"
+    }
+  }
+}

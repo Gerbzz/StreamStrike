@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">StreamStrike product mark</title>
+<desc id="desc">Interlocking S ribbon with two broadcast arcs. Original two-color vector artwork. Transparent background.</desc>
+<path fill="#13C7E6" d="M312 112H208c-62 0-112 43-112 100 0 53 44 94 104 94h80v-64h-80c-23 0-40-13-40-30s20-36 48-36h104z"/>
+<path fill="#1465E8" d="M144 408h160c62 0 112-43 112-100 0-53-44-94-104-94h-80v64h80c23 0 40 13 40 30s-20 36-48 36H144z"/>
+<path fill="none" stroke="#13C7E6" stroke-width="22" stroke-linecap="round" d="M350 122c20 10 32 29 32 50m-16-82c36 17 58 47 58 82"/>
+</svg>

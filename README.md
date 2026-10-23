@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/branding/StreamStrike-logo.png" alt="StreamStrike product logo" width="128" height="128">
+</p>
+
+<p align="center">
   <a href="https://prowebdevsolutions.com"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/branding/PWDS-logo-orange.svg">
     <img src="assets/branding/PWDS-logo.png" alt="PWDS company logo" width="120">
@@ -65,7 +69,7 @@ See [DECISIONS.md](docs/DECISIONS.md) for options and dependency status.
 
 ## Development direction
 
-The native editor is a project setup tool; a media engine is the next milestone. `libobs` is a researched candidate, not a chosen or bundled dependency. The interface uses the StreamStrike name and shows the existing approved PWDS mark in About; a distinct StreamStrike icon remains undecided. See [DECISIONS.md](docs/DECISIONS.md).
+The native editor is a project setup tool; a media engine is the next milestone. `libobs` is a researched candidate, not a chosen or bundled dependency. The interface uses the StreamStrike name and shows the existing approved PWDS mark in About; the distinct [StreamStrike product logo](assets/branding/StreamStrike-logo.png) is now documented in the README, while runtime icon integration remains unverified. See [DECISIONS.md](docs/DECISIONS.md).
 
 ## Credits and licenses
 
@@ -74,3 +78,7 @@ No first-party source license grant is made by this checkpoint; choose an explic
 ### PWDS publisher artwork
 
 The company mark in this masthead is the existing [official PWDS logo](https://github.com/Gerbzz/PWDS-Website/blob/main/public/prowebdevsolutions-logo.png), with the [official orange display asset](https://prowebdevsolutions.com/images/prowebdevsolutions-logo-orange.svg) for dark backgrounds. This is PWDS publisher artwork, not a StreamStrike app logo.
+
+## Product artwork
+
+The StreamStrike product mark above has an original [SVG master](assets/branding/StreamStrike-logo.svg) and matching PNG. [Asset provenance](assets/branding/StreamStrike-logo.provenance.json) records how it was created and the exact file hashes. The PWDS publisher artwork and inherited software credits are unchanged. Existing screenshots retain the artwork visible in their original captured builds.
