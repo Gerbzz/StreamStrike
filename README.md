@@ -26,6 +26,14 @@ The native editor work in [PR #2](https://github.com/Gerbzz/StreamStrike/pull/2)
 - Describe display, window, microphone, and desktop-audio sources.
 - Store mute and gain settings for audio sources.
 
+## Native editor screenshot
+
+![The actual StreamStrike native scene/source project editor, showing the Game scene and synthetic Monitor and Voice source selectors](docs/evidence/streamstrike-editor-linux-20261023.png)
+
+*An unmodified 1160×740 frame from the running native WGPU editor on a hosted Ubuntu 24.04 runner under Xvfb and software Vulkan/Lavapipe, captured on 23 October 2026 in [successful run 40016933156](https://github.com/Gerbzz/StreamStrike/actions/runs/40016933156). It shows project setup only: selectors are synthetic text values and no devices were opened. There is no live preview, recording, or streaming. [Exact source, hash, environment, and limitations](docs/evidence/streamstrike-editor-linux-20261023.provenance.json).*
+
+The product logo above is README artwork; runtime and packaged-icon integration is not part of this capture.
+
 ## Build and install
 
 Source builds require Rust with support for the manifest's 2024 edition. The source defines CLI and native editor targets; no installer is included.
@@ -54,7 +62,7 @@ streamstrike set-audio demo.streamstrike 4 false -6
 streamstrike show demo.streamstrike
 ```
 
-The [actual CLI transcript](docs/evidence/windows-cli-transcript.txt), [resulting project](docs/evidence/demo.streamstrike), and [capture provenance](docs/evidence/README.md) are retained in this repository. For example, the executable reported `added source ID 4; selector is stored but not opened` and `stored audio settings for source ID 4; no audio device is opened`. This is command output from the earlier CLI checkpoint. The native editor has a separate [hosted build and capture workflow](.github/workflows/editor-preview.yml). No GUI screenshot is committed here, and the retained CLI evidence does not establish desktop GUI acceptance.
+The [actual CLI transcript](docs/evidence/windows-cli-transcript.txt), [resulting project](docs/evidence/demo.streamstrike), and [capture provenance](docs/evidence/README.md) are retained in this repository. For example, the executable reported `added source ID 4; selector is stored but not opened` and `stored audio settings for source ID 4; no audio device is opened`. This is command output from the earlier CLI checkpoint. The native editor has a separate [hosted build and capture workflow](.github/workflows/editor-preview.yml). The source-matched native Linux screenshot above is now retained. The Windows attempt in that same run could not find a suitable WGPU adapter; its passing build is not Windows GUI acceptance. The retained CLI evidence does not establish capture, recording, or streaming support.
 
 `new` refuses an existing path. Edits validate the full project and use a staging file and old-project backup. If a save is interrupted, the program leaves sidecars for inspection and refuses to overwrite them. The format is limited to 1 MiB. Nothing in this CLI records audio/video or contacts a service.
 

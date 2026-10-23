@@ -1,0 +1,44 @@
+{
+  "app": "StreamStrike",
+  "asset": "docs/evidence/streamstrike-editor-linux-20261023.png",
+  "captured_utc": "2026-10-23T20:13:08Z",
+  "run_url": "https://github.com/Gerbzz/StreamStrike/actions/runs/40016933156",
+  "run_id": 40016933156,
+  "job_id": 120632580278,
+  "artifact_id": 12528878338,
+  "artifact_name": "streamstrike-linux-native-bf45cd970611a506f37e76b6f7999eb2dd1cda2c",
+  "artifact_zip_sha256": "5609fedd266ce211398d0634b02acf38645fa449c63797a852419196dde71ea3",
+  "pr_source_head": "f17937c350f57ccd9abfc886d6678628ae9f9cad",
+  "actual_checkout_sha": "bf45cd970611a506f37e76b6f7999eb2dd1cda2c",
+  "checkout_kind": "GitHub synthetic pull-request merge of the PR source head into 2d822de20b36fdc42ee62894e4676d0e168a86d5",
+  "checkout_tree_sha": "b1c45076f3c747efd833af9d2b5ff314540ba551",
+  "tree_exactly_matches_reviewed_pr_head": true,
+  "merged_logo_checkpoint": "052d35a3df9a428d2022ff81f64733c2b6361232",
+  "environment": "Hosted Ubuntu 24.04; Xvfb; WGPU native editor using software Vulkan/Lavapipe",
+  "command": "xvfb-run -a -s \"-screen 0 1280x800x24\" target/debug/streamstrike-editor --open docs/evidence/demo.streamstrike --capture OUTPUT.png",
+  "content": "Actual scene/source project editor loaded with the retained synthetic project; Game scene and Monitor/Voice source descriptions. No devices opened. No media captured or streamed.",
+  "screenshot_kind": "Unmodified app-produced native WGPU framebuffer; not a mockup or headless egui render",
+  "dimensions": [
+    1160,
+    740
+  ],
+  "mode": "RGBA",
+  "bytes": 84725,
+  "sha256": "1c5a8c5951cea2bac22bd326e03982cc3208be50c73b0e1ec455f63b57115f38",
+  "git_blob_sha": "5131f701f3934634a0dcf550b9d442aadd55be0a",
+  "decoded_rgba_sha256": "eaf52b504b49b794b1bbe16d4855ea54af1d9389cd1a9e0bd901b542ee9b3d2a",
+  "verification": {
+    "core_and_editor_tests_passed": 14,
+    "separate_native_png_detail_gate_passed": true,
+    "sampled_colors_reported_by_gate": 91,
+    "full_unique_colors": 748,
+    "visual_review": "Scene/source controls and explicit unavailable-recording/streaming warning visible; accepted as current project-editor evidence only."
+  },
+  "limitations": [
+    "Synthetic selectors are descriptions, not resolved physical devices.",
+    "No live preview, recording, replay, audio mixer signal, or streaming is implemented or exercised.",
+    "The same Windows run built and tested successfully but could not capture a GUI: Wgpu(NoSuitableAdapterFound), process exit 1.",
+    "The distinct product logo is README artwork; runtime and packaged icons were not replaced."
+  ],
+  "raw_artifact_provenance": "Actual StreamStrike WGPU editor at bf45cd970611a506f37e76b6f7999eb2dd1cda2c; synthetic selectors; software Vulkan Lavapipe under Xvfb; no devices opened."
+}
