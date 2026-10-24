@@ -12,6 +12,7 @@ import sys
 
 import obs_foundation
 import obs_runtime
+import obs_components
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'foundation/branding/overlay.json'
@@ -276,7 +277,8 @@ def build():
     binary = obs_foundation.executable(COPY)
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise ValueError('branded OBS binary missing')
-    runtime = obs_runtime.audit_runtime(prefix)
+    ownership = obs_components.ownership_context(source, COPY, prefix, receipt)
+    runtime = obs_runtime.audit_runtime(prefix, ownership=ownership)
     with runtime_report.open('xb') as report:
         report.write(canonical(runtime) + b'\n')
     identity = {'donor_commit': overlay['donor_commit'], 'overlay_sha256': receipt['overlay_sha256'],
@@ -315,7 +317,9 @@ def verify_build():
     source, overlay = checked(); receipt = verify_copy(COPY, overlay, ROOT, source)
     binary, stamp = validate_build(COPY, receipt)
     # Recheck loader closure before launch; never inject search paths or disable modules.
-    runtime = obs_runtime.audit_runtime(COPY / 'build_ubuntu/install/RelWithDebInfo')
+    prefix = COPY / 'build_ubuntu/install/RelWithDebInfo'
+    ownership = obs_components.ownership_context(source, COPY, prefix, receipt)
+    runtime = obs_runtime.audit_runtime(prefix, ownership=ownership)
     if sha256(canonical(runtime['inventory'])) != stamp['runtime_inventory_sha256']:
         raise ValueError('runtime changed during dependency verification')
     if sha256(canonical(runtime)) != stamp['runtime_report_sha256']:

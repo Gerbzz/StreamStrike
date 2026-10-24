@@ -1,7 +1,7 @@
 name: OBS source foundation
 on:
   pull_request:
-    paths: ['foundation/**', 'tools/obs_foundation.py', 'tools/obs_branding.py', 'tools/obs_runtime.py', 'tools/obs_capture.sh', 'tools/verify_obs_capture.py', 'tests/branding/**', 'assets/branding/StreamStrike-logo.png', 'tests/test_obs_*.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
+    paths: ['foundation/**', 'tools/obs_foundation.py', 'tools/obs_branding.py', 'tools/obs_runtime.py', 'tools/obs_components.py', 'tools/obs_capture.sh', 'tools/verify_obs_capture.py', 'tests/branding/**', 'assets/branding/StreamStrike-logo.png', 'tests/test_obs_*.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
   workflow_dispatch:
 permissions:
   contents: read

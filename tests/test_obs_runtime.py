@@ -256,6 +256,128 @@ class InstalledRuntime(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'bin/obs'):
             self.runtime.audit_runtime(self.prefix)
 
+    def private_scope_fixture(self):
+        core = self.prefix / 'lib/obs-modules/core'
+        system = self.root / 'system'
+        system.mkdir()
+        for output, value in [(core / 'libcollision.so.1', 202), (system / 'libcollision.so.1', 101)]:
+            self.compile(['-shared', '-fPIC', '-Wl,-soname,libcollision.so.1'],
+                         'int collision(void) { return ' + str(value) + '; }', output)
+        self.compile(['-shared', '-fPIC', str(system / 'libcollision.so.1'),
+                      '-Wl,-rpath,$ORIGIN', '-Wl,-soname,libplacebo-fixture.so'],
+                     'extern int collision(void); int consumer(void) { return collision(); }',
+                     system / 'libplacebo-fixture.so')
+        self.compile(['-shared', '-fPIC', str(system / 'libplacebo-fixture.so'), '-Wl,-rpath,' + str(system)],
+                     'extern int consumer(void); int plugin(void) { return consumer(); }', core / 'plugin.so')
+        self.compile([str(core / 'libcollision.so.1'), '-Wl,-rpath,$ORIGIN'],
+                     'extern int collision(void); int main(void) { return collision() != 202; }', core / 'helper')
+        context = {'version': 1, 'component': 'cef', 'provenance': {'fixture': 'trusted producer substitute'},
+                   'members': {str(path.relative_to(self.prefix)): {
+                       'role': role, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+                       for path, role in [(core / 'libcollision.so.1', 'payload'), (core / 'helper', 'consumer')]}}
+        return core, system, context
+
+    def test_private_bundle_does_not_own_unrelated_system_transitive_requester(self):
+        core, system, context = self.private_scope_fixture()
+        subprocess.run([str(core / 'helper')], check=True, env={'PATH': '/usr/bin:/bin'})
+        report = self.runtime.audit_runtime(self.prefix, ownership=context)
+        self.assertEqual(report['ownership'], context)
+        decisions = report['elf']['lib/obs-modules/core/plugin.so']['ownership_decisions']
+        self.assertEqual(len(decisions), 1)
+        self.assertEqual(decisions[0]['disposition'], 'system-requester-private-overlap')
+        self.assertEqual(decisions[0]['declared_requesters'][0]['path'], str(system / 'libplacebo-fixture.so'))
+        self.assertEqual(decisions[0]['resolved'], str(system / 'libcollision.so.1'))
+        with self.assertRaisesRegex(ValueError, 'shipped SONAME'):
+            self.runtime.audit_runtime(self.prefix)  # No provenance: strict original behavior.
+
+    def test_private_component_requester_wrong_target_is_rejected(self):
+        core, system, context = self.private_scope_fixture()
+        self.compile([str(system / 'libcollision.so.1'), '-Wl,-rpath,' + str(system)],
+                     'extern int collision(void); int main(void) { return collision() != 101; }', core / 'helper')
+        context['members']['lib/obs-modules/core/helper']['sha256'] = hashlib.sha256((core / 'helper').read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError, 'shipped SONAME'):
+            self.runtime.audit_runtime(self.prefix, ownership=context)
+
+    def test_private_context_never_exempts_nonprivate_shipped_library(self):
+        core, system, context = self.private_scope_fixture()
+        shutil.copyfile(self.prefix / 'lib/libss_runtime_fixture.so.1.0', system / 'libss_runtime_fixture.so.1')
+        self.plugin(str(system))
+        with self.assertRaisesRegex(ValueError, 'shipped SONAME'):
+            self.runtime.audit_runtime(self.prefix, ownership=context)
+
+    def test_installed_noncomponent_requester_is_not_assumed_to_be_system(self):
+        core, system, context = self.private_scope_fixture()
+        self.compile(['-shared', '-fPIC', str(system / 'libcollision.so.1'), '-Wl,-rpath,' + str(system)],
+                     'extern int collision(void); int plugin(void) { return collision(); }', core / 'plugin.so')
+        with self.assertRaisesRegex(ValueError, 'shipped SONAME'):
+            self.runtime.audit_runtime(self.prefix, ownership=context)
+
+    def test_private_context_rejects_tamper_unknown_role_and_escaping_member(self):
+        core, system, context = self.private_scope_fixture()
+        for change in ('hash', 'role', 'escape'):
+            damaged = json.loads(json.dumps(context))
+            member = damaged['members']['lib/obs-modules/core/libcollision.so.1']
+            if change == 'hash': member['sha256'] = '0' * 64
+            elif change == 'role': member['role'] = 'any-library'
+            else: damaged['members']['../outside.so'] = member
+            with self.assertRaisesRegex(ValueError, 'ownership'):
+                self.runtime.audit_runtime(self.prefix, ownership=damaged)
+
+    def test_private_overlap_rejects_alternate_name_for_same_external_object(self):
+        core, system, context = self.private_scope_fixture()
+        alias = system / 'libalias.so'
+        self.compile(['-shared', '-fPIC', '-Wl,-soname,libalias.so'],
+                     'int alias_value(void) { return 101; }', alias)
+        self.compile(['-shared', '-fPIC', str(system / 'libplacebo-fixture.so'), str(alias),
+                      '-Wl,-rpath,' + str(system)],
+                     'extern int consumer(void); extern int alias_value(void); '
+                     'int plugin(void) { return consumer() + alias_value(); }', core / 'plugin.so')
+        self.compile(['-shared', '-fPIC', '-Wl,-soname,libcollision.so.1'],
+                     'int collision(void) { return 101; } int alias_value(void) { return 101; }',
+                     system / 'libcollision.so.1')
+        alias.unlink()
+        alias.symlink_to('libcollision.so.1')
+        output = subprocess.check_output(['ldd', str(core / 'plugin.so')], text=True)
+        self.assertIn('libalias.so =>', output)
+        with self.assertRaisesRegex(ValueError, 'shipped SONAME'):
+            self.runtime.audit_runtime(self.prefix, ownership=context)
+
+    def test_private_overlap_rejects_mixed_installed_and_system_requesters(self):
+        core, system, context = self.private_scope_fixture()
+        self.compile(['-shared', '-fPIC', str(system / 'libplacebo-fixture.so'),
+                      str(system / 'libcollision.so.1'), '-Wl,-rpath,' + str(system)],
+                     'extern int consumer(void); extern int collision(void); '
+                     'int plugin(void) { return consumer() + collision(); }', core / 'plugin.so')
+        with self.assertRaisesRegex(ValueError, 'shipped SONAME') as caught:
+            self.runtime.audit_runtime(self.prefix, ownership=context)
+        failures = json.loads(str(caught.exception).split(': ', 1)[1])
+        failure = next(item for item in failures if item['audited_elf'].endswith('/plugin.so'))
+        self.assertEqual({item['path'] for item in failure['declared_requesters']},
+                         {str(core / 'plugin.so'), str(system / 'libplacebo-fixture.so')})
+
+    def test_private_overlap_rejects_unknown_requester_metadata(self):
+        core, system, context = self.private_scope_fixture()
+        original = self.runtime._elf_metadata
+        def missing_requester(path):
+            record = original(path)
+            if path == system / 'libplacebo-fixture.so': record['needed'] = []
+            return record
+        with patch.object(self.runtime, '_elf_metadata', side_effect=missing_requester):
+            with self.assertRaisesRegex(ValueError, 'shipped SONAME'):
+                self.runtime.audit_runtime(self.prefix, ownership=context)
+
+    def test_private_overlap_rejects_absolute_needed_ambiguity(self):
+        core, system, context = self.private_scope_fixture()
+        absolute = system / 'absolute.so'
+        self.compile(['-shared', '-fPIC'], 'int absolute_value(void) { return 0; }', absolute)
+        self.compile(['-shared', '-fPIC', str(system / 'libplacebo-fixture.so'), str(absolute),
+                      '-Wl,-rpath,' + str(system)],
+                     'extern int consumer(void); extern int absolute_value(void); '
+                     'int plugin(void) { return consumer() + absolute_value(); }', core / 'plugin.so')
+        self.assertIn(str(absolute), self.runtime._elf_metadata(core / 'plugin.so')['needed'])
+        with self.assertRaisesRegex(ValueError, 'shipped SONAME'):
+            self.runtime.audit_runtime(self.prefix, ownership=context)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -64,9 +64,30 @@ No global loader configuration or library-path environment override is used.
 `tools/obs_runtime.py` inventories every installed regular file and symlink,
 stream-hashing large CEF assets. It inspects every installed real ELF with
 `readelf`/`ldd` in a clean inspection environment, handles static ELF explicitly,
-and rejects unresolved dependencies or shipped SONAMEs resolving to another
-installation. This covers ELF `DT_NEEDED` dependencies, not optional hardware
-drivers loaded at runtime or media/device acceptance. Build and launch require this closure; the receipt additionally
+and rejects unresolved dependencies or non-private shipped SONAMEs resolving to
+another installation. The first all-ELF audit incorrectly treated the bundled
+CEF graphics libraries as globally owned: hosted diagnostic run `40114902835`
+identified `obs-ffmpeg.so` reaching system `libplacebo.so.360`, whose own
+`DT_NEEDED` correctly resolved system Vulkan rather than CEF's adjacent copy.
+
+`tools/obs_components.py` now revalidates the retained, pinned CEF archive and
+streams its six explicitly copied ELF members without extracting anything.
+Archive, prepared input and installed bytes must agree; exact source contracts,
+cache paths, explicit browser consumers and member hashes form the ownership
+context. Other modules share the same core directory and are not CEF members.
+For those proven private payloads only, a different external target is allowed
+when the complete closure has a nonempty, unambiguous set of matching declared
+`DT_NEEDED` requesters entirely outside the install prefix. Installed, mixed,
+unknown or aliased requesters fail closed; CEF consumers and all non-private
+shipped libraries retain exact-target requirements. There is no Vulkan-name
+exception, loader override or changed search path. Without a source-derived
+context, the auditor retains its original strict behavior.
+
+The full report records the context and each private/system overlap rationale;
+both are freshly rederived before launch. Standalone `ldd` is not a simulation of
+same-process `dlopen` load order or namespace reuse. Fresh real frontend startup
+and capture remain required, and do not establish optional hardware drivers or
+media/device acceptance. Build and launch require this closure; the receipt additionally
 binds the entire installed inventory and canonical closure-report digest, not
 only the main executable. A fresh audit must match both before launch. The capture
 artifact retains the matching dependency report and inventory hashes.

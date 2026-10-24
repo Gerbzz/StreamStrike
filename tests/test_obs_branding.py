@@ -307,4 +307,32 @@ class BrandingCopy(unittest.TestCase):
         p=self.out/'.streamstrike-source.json'; r=json.loads(p.read_text());r['files']['COPYING']['sha256']=self.m.sha256(b'forged');p.write_text(json.dumps(r))
         with self.assertRaisesRegex(ValueError,'receipt'): self.m.verify_copy(self.out,self.overlay,self.root)
 
+    def test_launch_rederives_ownership_and_binds_it_in_fresh_report(self):
+        receipt = {'files': {}}
+        prefix = self.out / 'build_ubuntu/install/RelWithDebInfo'
+        binary = prefix / 'bin/obs'
+        inventory = {'version': 1, 'files': {}}
+        context = {'fixture': 'original source-bound context'}
+        report = {'inventory': inventory, 'ownership': context}
+        stamp = {'runtime_inventory_sha256': self.m.sha256(self.m.canonical(inventory)),
+                 'runtime_report_sha256': self.m.sha256(self.m.canonical(report))}
+        with mock.patch.object(self.m, 'checked', return_value=(self.source, self.overlay)), \
+             mock.patch.object(self.m, 'verify_copy', return_value=receipt), \
+             mock.patch.object(self.m, 'validate_build', return_value=(binary, stamp)), \
+             mock.patch.object(self.m, 'COPY', self.out), \
+             mock.patch.object(self.m.obs_components, 'ownership_context', return_value=context) as derive, \
+             mock.patch.object(self.m.obs_runtime, 'audit_runtime',
+                               side_effect=lambda prefix, *, ownership: {'inventory': inventory, 'ownership': ownership}) as audit:
+            self.assertEqual(self.m.verify_build(), (binary, stamp))
+            derive.assert_called_once_with(self.source, self.out, prefix, receipt)
+            audit.assert_called_once_with(prefix, ownership=context)
+            derive.return_value = {'fixture': 'changed provenance'}
+            with self.assertRaisesRegex(ValueError, 'fresh dependency report'):
+                self.m.verify_build()
+            self.assertEqual(derive.call_count, 2)
+            derive.side_effect = ValueError('archive tampered')
+            with self.assertRaisesRegex(ValueError, 'archive tampered'):
+                self.m.verify_build()
+            self.assertEqual(audit.call_count, 2)  # Invalid provenance never reaches loader acceptance.
+
 if __name__=='__main__':unittest.main()

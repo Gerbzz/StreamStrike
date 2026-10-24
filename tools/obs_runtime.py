@@ -158,7 +158,53 @@ def _loader_edges(path):
     return edges
 
 
-def audit_runtime(prefix):
+def _private_targets(ownership, root, inventory, metadata):
+    """Validate a freshly source-derived component context, never infer it from directories."""
+    if ownership is None:
+        return set()
+    if (not isinstance(ownership, dict) or ownership.get('version') != 1 or
+            ownership.get('component') != 'cef' or not isinstance(ownership.get('provenance'), dict) or
+            not ownership['provenance'] or not isinstance(ownership.get('members'), dict) or
+            not ownership['members']):
+        raise ValueError('invalid runtime ownership context')
+    private = set()
+    consumers = set()
+    for name, member in ownership['members'].items():
+        if (not isinstance(name, str) or not isinstance(member, dict) or
+                set(member) != {'role', 'sha256'} or member['role'] not in {'payload', 'consumer'}):
+            raise ValueError('invalid runtime ownership member')
+        path = root / name
+        if (Path(name).is_absolute() or Path(name).as_posix() != name or
+                any(part in {'.', '..'} for part in Path(name).parts) or
+                path not in metadata or name not in inventory['files'] or
+                inventory['files'][name]['kind'] != 'file' or
+                member['sha256'] != inventory['files'][name]['sha256']):
+            raise ValueError('runtime ownership member differs from installed ELF inventory: ' + name)
+        (private if member['role'] == 'payload' else consumers).add(path)
+    if not private or not consumers:
+        raise ValueError('runtime ownership requires explicit payload and consumers')
+    return private
+
+
+def _system_private_overlap(failure, edges, closure, metadata, root, private):
+    """Only unrelated, unambiguous external DT_NEEDED requesters may retain their system target."""
+    identity = failure['identity']
+    resolved = Path(failure['resolved'])
+    if (Path(failure['expected']) not in private or resolved.is_relative_to(root) or
+            failure['requested_name'] != identity or failure['resolved_soname'] != identity or
+            not failure['declared_requesters'] or
+            any(Path(item['path']).is_relative_to(root) for item in failure['declared_requesters'])):
+        return False
+    # A flattened loader list cannot prove ownership through aliases. Do not let
+    # another name for this object hide a component-owned or unknown requester.
+    if any(edge['resolved'] == str(resolved) and edge['name'] != identity for edge in edges):
+        return False
+    if any('/' in needed for candidate in closure for needed in metadata[candidate]['needed']):
+        return False
+    return True
+
+
+def audit_runtime(prefix, ownership=None):
     """Audit every installed ELF independently, including plugins not needed by bin/obs."""
     root = _prefix(prefix)
     inventory = runtime_inventory(root)
@@ -186,6 +232,7 @@ def audit_runtime(prefix):
                 raise ValueError('shipped SONAME has multiple canonical targets: ' + data['soname'])
     if metadata[actual_main]['elf_type'] not in {'EXEC', 'DYN'}:
         raise ValueError('installed bin/obs is not an executable ELF type')
+    private = _private_targets(ownership, root, inventory, metadata)
     ownership_failures = []
     for name, record in elf.items():
         path = root / name
@@ -218,8 +265,8 @@ def audit_runtime(prefix):
             # bypass the guard by resolving to a system copy of a shipped library.
             for identity in dict.fromkeys((edge['name'], soname)):
                 if identity in shipped and shipped[identity] != resolved:
-                    # Retain the same rejection predicate. Collect diagnostic
-                    # context rather than hiding every root after the first.
+                    # Record the strict ownership collision first. A private
+                    # payload exception is considered only after the full closure.
                     root_failures.append({
                         'audited_elf': name, 'identity': identity,
                         'requested_name': edge['name'], 'resolved': str(resolved),
@@ -250,13 +297,20 @@ def audit_runtime(prefix):
                  'runpath': metadata[candidate]['runpath'], 'rpath': metadata[candidate]['rpath']}
                 for candidate in sorted(closure)
                 if failure['identity'] in metadata[candidate]['needed']]
+            if _system_private_overlap(failure, edges, closure, metadata, root, private):
+                failure['disposition'] = 'system-requester-private-overlap'
+                record.setdefault('ownership_decisions', []).append(failure)
+            else:
+                ownership_failures.append(failure)
             print('StreamStrike ELF ownership diagnostic: ' +
                   json.dumps(failure, sort_keys=True), file=sys.stderr)
-        ownership_failures.extend(root_failures)
     if runtime_inventory(root) != inventory:
         raise ValueError('installed runtime changed during dependency audit')
     if ownership_failures:
         raise ValueError('shipped SONAME resolved outside its exact target: ' +
                          json.dumps(ownership_failures, sort_keys=True))
-    return {'version': 1, 'inventory': inventory, 'elf': elf,
-            'entrypoint': actual_main.relative_to(root).as_posix()}
+    report = {'version': 1, 'inventory': inventory, 'elf': elf,
+              'entrypoint': actual_main.relative_to(root).as_posix()}
+    if ownership is not None:
+        report['ownership'] = ownership
+    return report
