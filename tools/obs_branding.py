@@ -76,9 +76,9 @@ def _snapshot(source, pin, prefix=''):
             if PurePosixPath(target).is_absolute() or normalized == '..' or normalized.startswith('../') or '\\' in target:
                 raise ValueError('source symlink escapes tree: ' + full_name)
             try:
-                contained = path.resolve().is_relative_to(source.resolve())
-            except RuntimeError as exc:
-                raise ValueError('source symlink cycle: ' + full_name) from exc
+                contained = path.resolve(strict=True).is_relative_to(source.resolve())
+            except (OSError, RuntimeError) as exc:
+                raise ValueError('source symlink is missing or cyclic: ' + full_name) from exc
             if not contained:
                 raise ValueError('source symlink chain escapes tree: ' + full_name)
             content = target.encode()
