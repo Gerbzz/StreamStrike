@@ -1,3 +1,9 @@
 /target/
 /foundation/obs-studio/
 __pycache__/
+
+.audit/
+.superpowers/
+foundation/streamstrike-obs/
+build-branding-test/
+obs-branding-evidence/

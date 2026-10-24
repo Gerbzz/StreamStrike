@@ -1,1 +1,7 @@
 docs/evidence/windows-cli-transcript.txt -text -diff
+
+foundation/branding/* text eol=lf
+tools/obs_branding.py text eol=lf
+tools/obs_capture.sh text eol=lf
+tools/verify_obs_capture.py text eol=lf
+tests/branding/* text eol=lf

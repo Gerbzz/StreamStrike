@@ -20,7 +20,7 @@ not the retired custom Rust project-editor UI. The pinned upstream source is
 This is a source-development baseline, **not a Rust rewrite, verified native
 capture/recording acceptance, installer, or StreamStrike release**.
 
-## Default developer application: original OBS
+## Default developer application: actual OBS with StreamStrike identity
 
 The supported helper path currently targets Ubuntu 26.04. Prepare the toolchain
 and dependencies required by the pinned upstream source, including CMake, Ninja,
@@ -31,14 +31,18 @@ hosted build remains in [obs-foundation.yml](.github/workflows/obs-foundation.ym
 ```sh
 python3 tools/obs_foundation.py fetch
 python3 tools/obs_foundation.py build --cef-root /absolute/path/to/prepared/upstream/CEF
-python3 tools/obs_foundation.py
+python3 tools/obs_branding.py prepare
+python3 tools/obs_branding.py build
+python3 tools/obs_branding.py
 ```
+
+The branding helper builds a separate tracked-source copy with a hash-locked overlay; the original donor and its original build remain unchanged. It wires the existing mark into the actual Qt window and all idle/active/paused tray states, retaining the OBS frontend and media engine. Native verification is a required hosted gate, not established merely by these source changes. [Overlay, validation and platform limits](docs/OBS_BRANDING.md).
 
 `fetch` refuses an existing directory. `build` verifies the donor identity,
 uses its original `ubuntu` CMake preset with browser support and relocatable runtime paths enabled, and installs
-to the checkout-local `build_ubuntu/install/RelWithDebInfo`. The no-argument
-command (or `run`) launches only that actual `bin/obs`, checking its source pin
-and recorded build hash. If source, binary, receipt, dependencies or runtime are
+to the checkout-local `build_ubuntu/install/RelWithDebInfo`. The original helper’s no-argument
+command (or `run`) launches only that original `bin/obs`, checking its source pin
+and recorded build hash. The default branding command above separately verifies the complete copied source/overlay and its own executable receipt; it never falls back to the donor or legacy editor. If source, binary, receipt, dependencies or runtime are
 missing, it fails explicitly; it never launches the old editor or system OBS.
 `record-build` can stamp a preexisting executable: its receipt is only a local
 identity check, **not proof that the binary was compiled from the pinned source**.
@@ -89,4 +93,4 @@ The company mark in this masthead is the existing [official PWDS logo](https://g
 
 ## Product artwork
 
-The StreamStrike product mark above has an original [SVG master](assets/branding/StreamStrike-logo.svg) and matching PNG. [Asset provenance](assets/branding/StreamStrike-logo.provenance.json) records how it was created and the exact file hashes. The PWDS publisher artwork and inherited software credits are unchanged. Existing screenshots retain the artwork visible in their original captured builds.
+The StreamStrike product mark above has an original [SVG master](assets/branding/StreamStrike-logo.svg) and matching PNG. [Asset provenance](assets/branding/StreamStrike-logo.provenance.json) records how it was created and the exact file hashes. The PWDS publisher artwork and inherited software credits are unchanged. Historical screenshots retain the artwork visible in their original captured builds. The current native OBS screenshot is not substituted with the retired custom GUI; a new image is published only after exact-source hosted capture and visual review.

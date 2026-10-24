@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "donor_commit": "72e86655715d9a25d69ce446aa4dd44ba58e10d2",
+  "replacements": [
+    {
+      "path": "frontend/OBSApp.cpp",
+      "input_sha256": "57ea335292e621f8edfd7dcf7c71a1465b5d39f5d6dad179dac0f6936e87c1f7",
+      "output_sha256": "41136b6143a5d99e4d15358ed8c5084c5e0b706c2cbd7ecba3dd6291675daa8d",
+      "edits": [
+        {
+          "before": "#include \"OBSApp.hpp\"",
+          "after": "#include \"OBSApp.hpp\"\n#include <utility/StreamStrikeBranding.hpp>",
+          "count": 1
+        },
+        {
+          "before": "setWindowIcon(QIcon::fromTheme(\"obs\", QIcon(\":/res/images/obs.png\")));",
+          "after": "setWindowIcon(StreamStrikeBranding::icon());",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "path": "frontend/forms/obs.qrc",
+      "input_sha256": "95f170034de73f75fec140f347e1a90666508f61773f247ce0449093bf546a5c",
+      "output_sha256": "a768533a225fdd7f874fd73a33185189ecde95c059747bca4e40b8aefb2d0227",
+      "edits": [
+        {
+          "before": "    <file>images/obs.png</file>",
+          "after": "    <file>images/obs.png</file>\n    <file>images/streamstrike.png</file>",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "path": "frontend/widgets/OBSBasic.cpp",
+      "input_sha256": "bf42090d85df7a7cb43715206337e838dde1fef50b07ca222277ffcb7b3a9552",
+      "output_sha256": "49e14b6e1d460668e44cbf342d755eb56d4b3a2d140aac104b8526125d56c77e",
+      "edits": [
+        {
+          "before": "#include \"OBSBasic.hpp\"",
+          "after": "#include \"OBSBasic.hpp\"\n#include <utility/StreamStrikeCapture.hpp>",
+          "count": 1
+        },
+        {
+          "before": "\tname << \"OBS \";",
+          "after": "\tname << \"StreamStrike - OBS \";",
+          "count": 1
+        },
+        {
+          "before": "\tApp()->handlePluginLoadState();\n}",
+          "after": "\tApp()->handlePluginLoadState();\n\tStreamStrikeCapture::schedule(this, trayIcon.data());\n}",
+          "count": 1
+        },
+        {
+          "before": "\tui->setupUi(this);",
+          "after": "\tui->setupUi(this);\n\tsetWindowIcon(StreamStrikeBranding::icon());",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "path": "frontend/widgets/OBSBasic.hpp",
+      "input_sha256": "a06050fdabfde658ae5f20d62551ae0cd73e24c1e8a5ba59a156fe5956c0361e",
+      "output_sha256": "d1b73b3f4c9a405388776a04ccf3661a58f68ea5f469772e210c09151cf5dbfc",
+      "edits": [
+        {
+          "before": "#include <QSystemTrayIcon>",
+          "after": "#include <QSystemTrayIcon>\n#include <utility/StreamStrikeBranding.hpp>",
+          "count": 1
+        },
+        {
+          "before": "#ifdef __APPLE__\n\t\t\t\tQIcon trayMask = QIcon(\":/res/images/tray_active_macos.svg\");\n\t\t\t\ttrayMask.setIsMask(true);\n\t\t\t\ttrayIcon->setIcon(QIcon::fromTheme(\"obs-tray\", trayMask));\n#else\n\t\t\t\ttrayIcon->setIcon(\n\t\t\t\t\tQIcon::fromTheme(\"obs-tray-active\", QIcon(\":/res/images/tray_active.png\")));\n#endif",
+          "after": "\t\t\t\ttrayIcon->setIcon(StreamStrikeBranding::trayIcon(StreamStrikeBranding::State::Active));",
+          "count": 1
+        },
+        {
+          "before": "#ifdef __APPLE__\n\t\t\t\tQIcon trayIconFile = QIcon(\":/res/images/obs_macos.svg\");\n\t\t\t\ttrayIconFile.setIsMask(true);\n#else\n\t\t\t\tQIcon trayIconFile = QIcon(\":/res/images/obs.png\");\n#endif\n\t\t\t\ttrayIcon->setIcon(QIcon::fromTheme(\"obs-tray\", trayIconFile));",
+          "after": "\t\t\t\ttrayIcon->setIcon(StreamStrikeBranding::trayIcon(StreamStrikeBranding::State::Idle));",
+          "count": 1
+        },
+        {
+          "before": "#ifdef __APPLE__\n\t\t\t\tQIcon trayIconFile = QIcon(\":/res/images/obs_paused_macos.svg\");\n\t\t\t\ttrayIconFile.setIsMask(true);\n#else\n\t\t\t\tQIcon trayIconFile = QIcon(\":/res/images/obs_paused.png\");\n#endif\n\t\t\t\ttrayIcon->setIcon(QIcon::fromTheme(\"obs-tray-paused\", trayIconFile));",
+          "after": "\t\t\t\ttrayIcon->setIcon(StreamStrikeBranding::trayIcon(StreamStrikeBranding::State::Paused));",
+          "count": 1
+        },
+        {
+          "before": "#ifdef __APPLE__\n\t\t\t\tQIcon trayIconFile = QIcon(\":/res/images/tray_active_macos.svg\");\n\t\t\t\ttrayIconFile.setIsMask(true);\n#else\n\t\t\t\tQIcon trayIconFile = QIcon(\":/res/images/tray_active.png\");\n#endif\n\t\t\t\ttrayIcon->setIcon(QIcon::fromTheme(\"obs-tray-active\", trayIconFile));",
+          "after": "\t\t\t\ttrayIcon->setIcon(StreamStrikeBranding::trayIcon(StreamStrikeBranding::State::Active));",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "path": "frontend/widgets/OBSBasic_Recording.cpp",
+      "input_sha256": "da60bebe65c6268c2d6a615081c622ee115c305bbd7132a77b153976f4a24b38",
+      "output_sha256": "48d8bc17ba394a4eadfc1718b0b84ccfbb8e9812880c85098781674bbeeceb0d",
+      "edits": [
+        {
+          "before": "#ifdef __APPLE__\n\t\t\tQIcon trayIconFile = QIcon(\":/res/images/obs_paused_macos.svg\");\n\t\t\ttrayIconFile.setIsMask(true);\n#else\n\t\t\tQIcon trayIconFile = QIcon(\":/res/images/obs_paused.png\");\n#endif\n\t\t\ttrayIcon->setIcon(QIcon::fromTheme(\"obs-tray-paused\", trayIconFile));",
+          "after": "\t\t\ttrayIcon->setIcon(StreamStrikeBranding::trayIcon(StreamStrikeBranding::State::Paused));",
+          "count": 1
+        },
+        {
+          "before": "#ifdef __APPLE__\n\t\t\tQIcon trayIconFile = QIcon(\":/res/images/tray_active_macos.svg\");\n\t\t\ttrayIconFile.setIsMask(true);\n#else\n\t\t\tQIcon trayIconFile = QIcon(\":/res/images/tray_active.png\");\n#endif\n\t\t\ttrayIcon->setIcon(QIcon::fromTheme(\"obs-tray-active\", trayIconFile));",
+          "after": "\t\t\ttrayIcon->setIcon(StreamStrikeBranding::trayIcon(StreamStrikeBranding::State::Active));",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "path": "frontend/widgets/OBSBasic_SysTray.cpp",
+      "input_sha256": "05afe3ae3f9941fe1627fe08baa96634c2d42218595966ccfcfc2c4580363211",
+      "output_sha256": "c36b11dd2994df22eaefdfc08ad2105d18a57936b847eb6d15583add8d1c9267",
+      "edits": [
+        {
+          "before": "#ifdef __APPLE__\n\tQIcon trayIconFile = QIcon(\":/res/images/obs_macos.svg\");\n\ttrayIconFile.setIsMask(true);\n#else\n\tQIcon trayIconFile = QIcon(\":/res/images/obs.png\");\n#endif\n\ttrayIcon = new QSystemTrayIcon(QIcon::fromTheme(\"obs-tray\", trayIconFile), this);",
+          "after": "\ttrayIcon = new QSystemTrayIcon(StreamStrikeBranding::trayIcon(), this);",
+          "count": 1
+        },
+        {
+          "before": "trayIcon->setToolTip(\"OBS Studio\");",
+          "after": "trayIcon->setToolTip(\"StreamStrike\");",
+          "count": 1
+        },
+        {
+          "before": "trayIcon->showMessage(\"OBS Studio\", text, icon, 10000);",
+          "after": "trayIcon->showMessage(\"StreamStrike\", text, icon, 10000);",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "additions": [
+    {
+      "source": "assets/branding/StreamStrike-logo.png",
+      "path": "frontend/forms/images/streamstrike.png",
+      "sha256": "86acca5004fbe90a471230159b452d3eb4a3663db30dac5d26523f43f470d926"
+    },
+    {
+      "source": "foundation/branding/StreamStrikeBranding.hpp",
+      "path": "frontend/utility/StreamStrikeBranding.hpp",
+      "sha256": "78b56915c69bb6b3e4a4797517691d243d6c4bbf5539c46d9e04265bfec64082"
+    },
+    {
+      "source": "foundation/branding/StreamStrikeCapture.hpp",
+      "path": "frontend/utility/StreamStrikeCapture.hpp",
+      "sha256": "dbbca7dd265de5d7c4f5b2247a00a403f62eb192dac6d4ca13af7e1300fc8882"
+    }
+  ]
+}
