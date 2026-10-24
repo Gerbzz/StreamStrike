@@ -25,9 +25,10 @@ class SourceIdentity(unittest.TestCase):
         (self.source / "frontend").mkdir()
         (self.source / "frontend/CMakeLists.txt").write_text("# presence fixture\n")
 
-    def check(self, head=None, origin=None, status=""):
+    def check(self, head=None, origin=None, status="", version="32.1.0-10-g72e866557"):
         def fake_git(source, *args):
             if args[0] == "rev-parse": return head or self.lock["commit"]
+            if args[0] == "describe": return version
             if args[0] == "remote": return origin or self.lock["repository"]
             return status
         with patch.object(m, "git", side_effect=fake_git):
@@ -36,6 +37,8 @@ class SourceIdentity(unittest.TestCase):
     def test_pinned_source_hashes(self): self.check()
     def test_github_checkout_origin_without_git_suffix(self):
         self.check(origin="https://github.com/obsproject/obs-studio")
+    def test_reject_missing_version_tags(self):
+        with self.assertRaises(ValueError): self.check(version="72e866557")
     def test_reject_wrong_commit(self):
         with self.assertRaises(ValueError): self.check(head="0"*40)
     def test_reject_unofficial_origin(self):

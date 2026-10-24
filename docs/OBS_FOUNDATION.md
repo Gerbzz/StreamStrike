@@ -9,9 +9,9 @@ The actual engine is C/C++ libobs and the actual original frontend is Qt.
 ## Reproducible source and build
 
 `python3 tools/obs_foundation.py fetch` creates a NEW `foundation/obs-studio`
-checkout at the exact pin and initializes its pinned recursive submodules.
+checkout with version tags/history at the exact pin and initializes its pinned recursive submodules.
 It refuses to overwrite any existing directory. `verify` checks official origin,
-commit, clean tracked source, SHA-256 hashes of original build/license/source
+commit, usable upstream version tags, clean tracked source, SHA-256 hashes of original build/license/source
 files, and presence of the original frontend. No custom editor fallback exists.
 
 The `OBS source foundation` hosted job executes the pinned upstream
