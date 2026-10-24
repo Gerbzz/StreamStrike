@@ -12,14 +12,27 @@
 
 <h1 align="center">StreamStrike</h1>
 
-StreamStrike now starts from **the original OBS Studio frontend and libobs engine**,
-not the retired custom Rust project-editor UI. The pinned upstream source is
+**Target: port the entire OBS Studio application to Rust while preserving its
+original UI, features and behavior.** This is a source-by-source migration of
+OBS, not a parallel replacement UI or a wrapper presented as a completed rewrite.
+
+**Current state:** the running application still uses **the original C/C++ OBS
+Studio frontend and libobs engine**, not the retired custom Rust project-editor
+UI. A [bounded Rust scalar-settings parity module](docs/OBS_SCALAR_PARITY.md)
+(`src/obs_scalar.rs`) implements boolean, string and numeric tier resolution,
+but **is not yet integrated into the native OBS runtime**. The next migration
+slice replaces the native boolean/string settings-read functions with Rust
+implementations invoked by the existing OBS frontend, with original-source
+parity and native-execution checks required before acceptance.
+
+The pinned upstream source is
 `obsproject/obs-studio` commit `72e86655715d9a25d69ce446aa4dd44ba58e10d2`
 (OBS 33.0.0). Original C/C++ compilation passed in
 [run 40045870669](https://github.com/Gerbzz/StreamStrike/actions/runs/40045870669).
-This remains **original C/C++ OBS, not a Rust rewrite**. The bounded Linux UI
-identity capture below is verified; recording, streaming, hardware, installers
-and release readiness are not established by it.
+The full Rust rewrite is therefore **not complete**. The bounded Linux UI
+identity capture below verifies the current C/C++ baseline, not Rust migration
+progress; recording, streaming, hardware, installers and release readiness are
+not established by it.
 
 ## Current native OBS frontend — Linux
 
