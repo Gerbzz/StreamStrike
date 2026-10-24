@@ -4,12 +4,14 @@ This is a dependency-closure check, not source-build or native-use attestation.
 Only audit trusted build outputs: ldd invokes the platform's dynamic loader.
 """
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
 import shutil
 import stat
 import subprocess
+import sys
 
 
 _TOOL_ENV = {'PATH': '/usr/bin:/bin', 'LC_ALL': 'C', 'LANG': 'C'}
@@ -184,6 +186,7 @@ def audit_runtime(prefix):
                 raise ValueError('shipped SONAME has multiple canonical targets: ' + data['soname'])
     if metadata[actual_main]['elf_type'] not in {'EXEC', 'DYN'}:
         raise ValueError('installed bin/obs is not an executable ELF type')
+    ownership_failures = []
     for name, record in elf.items():
         path = root / name
         if not record['needed']:
@@ -195,6 +198,8 @@ def audit_runtime(prefix):
         record['linkage'] = 'dynamic'
         edges = _loader_edges(path)
         seen = set()
+        root_failures = []
+        closure = {path}
         for edge in edges:
             seen.add(edge['name'])
             if edge['resolved'] is None:
@@ -207,12 +212,24 @@ def audit_runtime(prefix):
                 raise ValueError('loader dependency is not a real ELF: ' + str(resolved))
             if resolved not in metadata:
                 metadata[resolved] = _elf_metadata(resolved)
+            closure.add(resolved)
             soname = metadata[resolved]['soname']
             # Check both requested name and actual ELF SONAME: an alias must not
             # bypass the guard by resolving to a system copy of a shipped library.
-            for identity in (edge['name'], soname):
+            for identity in dict.fromkeys((edge['name'], soname)):
                 if identity in shipped and shipped[identity] != resolved:
-                    raise ValueError('shipped SONAME resolved outside its exact target: ' + str(identity))
+                    # Retain the same rejection predicate. Collect diagnostic
+                    # context rather than hiding every root after the first.
+                    root_failures.append({
+                        'audited_elf': name, 'identity': identity,
+                        'requested_name': edge['name'], 'resolved': str(resolved),
+                        'expected': str(shipped[identity]), 'resolved_soname': soname,
+                        'root_needed': record['needed'], 'root_runpath': record['runpath'],
+                        'root_rpath': record['rpath'], 'direct_needed': identity in record['needed']})
+                    # Keep the first actionable evidence if a subsequent strict
+                    # loader/metadata guard fails before this root completes.
+                    print('StreamStrike ELF ownership diagnostic: ' +
+                          json.dumps(root_failures[-1], sort_keys=True), file=sys.stderr)
             # ldd may print an absolute interpreter path instead of its SONAME.
             # Trust the resolved ELF metadata, never a path-basename inference.
             if soname:
@@ -225,7 +242,21 @@ def audit_runtime(prefix):
         if missing:
             raise ValueError('unresolved direct dependencies absent from loader output: ' + ', '.join(sorted(missing)))
         record['dependencies'] = edges
+        for failure in root_failures:
+            # ldd is a flattened closure, not a proven parent-child load trace.
+            # These are declared DT_NEEDED requesters, not inferred loader parents.
+            failure['declared_requesters'] = [
+                {'path': str(candidate), 'needed': metadata[candidate]['needed'],
+                 'runpath': metadata[candidate]['runpath'], 'rpath': metadata[candidate]['rpath']}
+                for candidate in sorted(closure)
+                if failure['identity'] in metadata[candidate]['needed']]
+            print('StreamStrike ELF ownership diagnostic: ' +
+                  json.dumps(failure, sort_keys=True), file=sys.stderr)
+        ownership_failures.extend(root_failures)
     if runtime_inventory(root) != inventory:
         raise ValueError('installed runtime changed during dependency audit')
+    if ownership_failures:
+        raise ValueError('shipped SONAME resolved outside its exact target: ' +
+                         json.dumps(ownership_failures, sort_keys=True))
     return {'version': 1, 'inventory': inventory, 'elf': elf,
             'entrypoint': actual_main.relative_to(root).as_posix()}

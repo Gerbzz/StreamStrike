@@ -1,6 +1,8 @@
 """Real installed ELF fixtures: loader closure is not a main-executable-only check."""
 import hashlib
+from contextlib import redirect_stderr
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -115,6 +117,36 @@ class InstalledRuntime(unittest.TestCase):
                 self.runtime.audit_runtime(self.prefix)
             self.assertEqual(dict(os.environ), before)
 
+    def test_ownership_failure_reports_all_roots_and_declared_requesters(self):
+        outside = self.root / 'outside'
+        outside.mkdir()
+        target = outside / 'libss_runtime_fixture.so.1'
+        shutil.copyfile(self.prefix / 'lib/libss_runtime_fixture.so.1.0', target)
+        self.plugin(str(outside))
+        shutil.copyfile(self.prefix / 'lib/obs-modules/core/plugin.so',
+                        self.prefix / 'lib/obs-modules/core/second.so')
+        with self.assertRaises(ValueError) as caught:
+            self.runtime.audit_runtime(self.prefix)
+        prefix = 'shipped SONAME resolved outside its exact target: '
+        self.assertTrue(str(caught.exception).startswith(prefix))
+        failures = json.loads(str(caught.exception)[len(prefix):])
+        self.assertEqual(len(failures), 2)
+        self.assertEqual({failure['audited_elf'] for failure in failures},
+                         {'lib/obs-modules/core/plugin.so', 'lib/obs-modules/core/second.so'})
+        for failure in failures:
+            self.assertEqual(failure['identity'], 'libss_runtime_fixture.so.1')
+            self.assertEqual(failure['requested_name'], failure['identity'])
+            self.assertEqual(failure['resolved_soname'], failure['identity'])
+            self.assertEqual(failure['resolved'], str(target))
+            self.assertEqual(failure['expected'], str(self.prefix / 'lib/libss_runtime_fixture.so.1.0'))
+            self.assertEqual(failure['root_needed'], [failure['identity']])
+            self.assertEqual(failure['root_runpath'], [str(outside)])
+            self.assertEqual(failure['root_rpath'], [])
+            self.assertTrue(failure['direct_needed'])
+            self.assertEqual(failure['declared_requesters'], [{
+                'path': str(self.prefix / failure['audited_elf']),
+                'needed': [failure['identity']], 'runpath': [str(outside)], 'rpath': []}])
+
     def test_inventory_binds_file_bytes_permissions_and_link_target(self):
         data = self.prefix / 'data.txt'
         data.write_text('one')
@@ -131,6 +163,54 @@ class InstalledRuntime(unittest.TestCase):
         link.unlink()
         link.symlink_to('libss_runtime_fixture.so.1.0')
         self.assertNotEqual(changed_mode, self.runtime.runtime_inventory(self.prefix))
+
+    def test_ownership_diagnostics_distinguish_transitive_declared_requester(self):
+        outside = self.root / 'outside'
+        outside.mkdir()
+        target = outside / 'libss_runtime_fixture.so.1'
+        shutil.copyfile(self.prefix / 'lib/libss_runtime_fixture.so.1.0', target)
+        consumer = outside / 'libconsumer.so'
+        self.compile(['-shared', '-fPIC', str(target), '-Wl,-rpath,$ORIGIN',
+                      '-Wl,-soname,libconsumer.so'],
+                     'extern int fixture_value(void); int consumer(void) { return fixture_value(); }', consumer)
+        self.compile(['-shared', '-fPIC', str(consumer), '-Wl,-rpath,' + str(outside)],
+                     'extern int consumer(void); int plugin_value(void) { return consumer(); }',
+                     self.prefix / 'lib/obs-modules/core/plugin.so')
+        with self.assertRaises(ValueError) as caught:
+            self.runtime.audit_runtime(self.prefix)
+        prefix = 'shipped SONAME resolved outside its exact target: '
+        self.assertTrue(str(caught.exception).startswith(prefix))
+        failures = json.loads(str(caught.exception)[len(prefix):])
+        self.assertEqual(len(failures), 1)
+        failure = failures[0]
+        self.assertFalse(failure['direct_needed'])
+        self.assertEqual(failure['root_needed'], ['libconsumer.so'])
+        self.assertEqual(failure['declared_requesters'], [{
+            'path': str(consumer), 'needed': ['libss_runtime_fixture.so.1'],
+            'runpath': ['$ORIGIN'], 'rpath': []}])
+
+    def test_later_missing_dependency_does_not_hide_earlier_ownership_diagnostics(self):
+        outside = self.root / 'outside'
+        outside.mkdir()
+        shutil.copyfile(self.prefix / 'lib/libss_runtime_fixture.so.1.0',
+                        outside / 'libss_runtime_fixture.so.1')
+        self.plugin(str(outside))
+        missing = self.root / 'libmissing.so'
+        self.compile(['-shared', '-fPIC', '-Wl,-soname,libmissing.so'],
+                     'int missing(void) { return 0; }', missing)
+        self.compile(['-shared', '-fPIC', str(missing), '-Wl,-rpath,' + str(self.root)],
+                     'extern int missing(void); int plugin(void) { return missing(); }',
+                     self.prefix / 'lib/obs-modules/core/zz-later.so')
+        missing.unlink()
+        diagnostics = io.StringIO()
+        with redirect_stderr(diagnostics), self.assertRaisesRegex(ValueError, 'unresolved|not found'):
+            self.runtime.audit_runtime(self.prefix)
+        records = [json.loads(line.split(': ', 1)[1]) for line in diagnostics.getvalue().splitlines()]
+        self.assertTrue(records)
+        self.assertEqual(records[0]['audited_elf'], 'lib/obs-modules/core/plugin.so')
+        self.assertEqual(records[0]['resolved'], str(outside / 'libss_runtime_fixture.so.1'))
+        self.assertEqual(records[-1]['declared_requesters'][0]['path'],
+                         str(self.prefix / 'lib/obs-modules/core/plugin.so'))
 
     def test_inventory_rejects_escaping_file_and_directory_symlinks(self):
         for name, target in [('escape-file', self.root / 'outside.txt'), ('escape-dir', self.root)]:
