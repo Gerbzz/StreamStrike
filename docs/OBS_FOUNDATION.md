@@ -1,4 +1,4 @@
-# StreamStrike: OBS source-first foundation candidate
+# StreamStrike: OBS source-first foundation
 
 This candidate selects the real official OBS Studio source at
 `72e86655715d9a25d69ce446aa4dd44ba58e10d2`, not `src/bin/editor.rs`.
@@ -27,8 +27,8 @@ mocked Git calls are NOT evidence of a real checkout or successful build.
 
 | Existing path | Decision |
 | --- | --- |
-| `src/bin/editor.rs` | Superseded custom GUI; retire from active binaries after original OBS build passes and reviewed cutover. Do not redesign it. |
-| Root `Cargo.toml` and old GUI workflow | Not replaced in this foundation candidate; cutover follows verified hosted donor build, so no default-entry swap to an unbuilt app. |
+| `src/bin/editor.rs` | Retired from the active tree after the original OBS build passed. Recoverable in Git history; no replacement custom UI. |
+| Root `Cargo.toml` and old GUI workflow | GUI target/dependencies and screenshot workflow retired; compatibility CLI/library and its tests retained. Default developer command launches original OBS. |
 | `src/lib.rs`, `src/editor.rs`, `src/storage.rs`, `src/main.rs` | Preserve existing JSON models, validation, storage and CLI as legacy import/export compatibility utilities, not OBS engine. Assess importer mapping before any removal. |
 | User JSON projects, scenes and media | Never deleted or automatically overwritten. Original copies remain; conversion must write separately with explicit diagnostics for unsupported fields. |
 | Logos, notices, approved documentation | Preserve assets; update stale claims and screenshots only when source-matched replacement is real. |
@@ -57,3 +57,9 @@ all source fixtures retain their notices. Keep source and nested dependency
 licenses; this candidate does not relicense OBS under the legacy project terms.
 Any future binary distribution must provide corresponding source/build scripts
 and appropriate notices. No binary release is part of this change.
+
+## Verified foundation and active entrypoint
+
+Hosted run `40045870669` compiled original OBS 33.0.0 at the exact pin.
+See [OBS_CUTOVER.md](OBS_CUTOVER.md) for the preservation audit and developer
+build/run commands. This changes source direction, not runtime acceptance.

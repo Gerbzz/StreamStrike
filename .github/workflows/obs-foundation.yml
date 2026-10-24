@@ -1,7 +1,7 @@
 name: OBS source foundation
 on:
   pull_request:
-    paths: ['foundation/**', 'tools/obs_foundation.py', 'tests/test_obs_foundation.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
+    paths: ['foundation/**', 'tools/obs_foundation.py', 'tests/test_obs_*.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +14,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Test source guardrails
-        run: python3 -m unittest discover -s tests -p test_obs_foundation.py -v
+        run: python3 -m unittest discover -s tests -p 'test_obs_*.py' -v
       - name: Check out official OBS source and pinned submodules
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -32,11 +32,19 @@ jobs:
           workingDirectory: ${{ github.workspace }}/foundation/obs-studio
           target: x86_64
           config: RelWithDebInfo
+      - name: Build relocatable developer entrypoint from original preset
+        # Upstream build has already prepared system dependencies and cached CEF_ROOT_DIR.
+        run: python3 tools/obs_foundation.py build
       - name: Verify build output and record source evidence
         run: |
           set -euo pipefail
           test -x foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs
           mkdir -p obs-build-evidence
+          ldd foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs | tee obs-build-evidence/loader.txt
+          if grep -q 'not found' obs-build-evidence/loader.txt; then
+            echo 'Original OBS developer executable has unresolved runtime libraries' >&2
+            exit 1
+          fi
           cp foundation/obs-source.lock.json obs-build-evidence/
           git -C foundation/obs-studio rev-parse HEAD > obs-build-evidence/obs-commit.txt
           git -C foundation/obs-studio describe --always --tags --dirty=-modified > obs-build-evidence/obs-version.txt

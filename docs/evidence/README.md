@@ -1,3 +1,7 @@
+> Historical checkpoint: the custom GUI direction below is superseded by the
+> [original OBS foundation and preservation cutover](../OBS_CUTOVER.md). Existing
+> capture artifacts describe their old source, not the current application.
+
 # Windows CLI evidence, 2026-10-15
 
 - [Successful hosted run](https://github.com/Gerbzz/StreamStrike/actions/runs/38704970118) on a standard Windows runner.
