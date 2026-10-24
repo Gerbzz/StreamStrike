@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "scope": "Verified actual OBS-based StreamStrike Linux Qt identity and native window in an isolated safe-mode empty-scene fixture. Not recording, streaming, device/hardware, ordinary-profile, Windows/macOS packaging, installer or release acceptance.",
+  "image": {
+    "path": "assets/screenshots/streamstrike-obs-linux-20261024.png",
+    "sha256": "105641bb45d18ed079b312a26e19a10e0841f294ae26e82527f2d308959322b1",
+    "bytes": 60435,
+    "dimensions": [
+      1282,
+      985
+    ],
+    "modifications": "None. Byte-identical native.png from the hosted artifact; no cropping, repainting, compositing or reconstruction after capture."
+  },
+  "capture_source": {
+    "repository": "Gerbzz/StreamStrike",
+    "head_commit": "aa18f3bcb9cf696933e08e0116debc07bd15c18b",
+    "tested_tree": "3d604075c9595cb6f979e3c469c3dad49541bff9",
+    "workflow_checkout_commit": "9549373dfd24aec4603f7991d402be230c38278b",
+    "base_commit": "24f2111dcae836edca7a19149f598eb5432c19bd",
+    "obs_repository": "obsproject/obs-studio",
+    "obs_commit": "72e86655715d9a25d69ce446aa4dd44ba58e10d2"
+  },
+  "hosted_evidence": {
+    "run_id": 40121353686,
+    "job_id": 120953372008,
+    "run_url": "https://github.com/Gerbzz/StreamStrike/actions/runs/40121353686",
+    "conclusion": "success",
+    "artifact_id": 12572210605,
+    "artifact_name": "streamstrike-obs-native-9549373dfd24aec4603f7991d402be230c38278b",
+    "artifact_url": "https://github.com/Gerbzz/StreamStrike/actions/runs/40121353686/artifacts/12572210605",
+    "artifact_zip_sha256": "98598cb6abe1f9f0038d5bd2de6e4cb3cd70a29c4a4df3d8918882fa7c9aa9d0",
+    "artifact_expires_at": "2027-01-22T18:34:49Z",
+    "compatibility_run_id": 40121353939,
+    "compatibility_conclusion": "success"
+  },
+  "verification": {
+    "scope": "Actual OBS Linux frontend identity and synthetic native window only; not recording, streaming or other OS acceptance.",
+    "build": {
+      "donor_commit": "72e86655715d9a25d69ce446aa4dd44ba58e10d2",
+      "executable_sha256": "f3e12bebfa0ef3f08515b2c1e029685bd4c3192875eba5fe2891e59094695a9c",
+      "overlay_sha256": "328938c8379bd1b142329cf0dc816cd19efff946e0258526cb33b0e507b19945",
+      "runtime_inventory_sha256": "10c98198afd1f55fe0f60d34da430bc43bef0d58b12562c21dfcf82742d178e1",
+      "runtime_report_sha256": "12f154565d70a87d83467cad0890d6275a145add9c0860cb3acd385ecd3872a8",
+      "source_inventory_sha256": "860c9fd6dc9aa1dd5fcd791873603a7d70e73bfd4ff41a9e7fa85d87b77154a1",
+      "capture_nonce": "3b84fdec33db18061af80b920a8818c0"
+    },
+    "runtime": {
+      "artifactSHA256": {
+        "application-icon.png": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+        "native.png": "105641bb45d18ed079b312a26e19a10e0841f294ae26e82527f2d308959322b1",
+        "resource.png": "86acca5004fbe90a471230159b452d3eb4a3663db30dac5d26523f43f470d926",
+        "state-active.png": "ff3c73157fa67d5ff241987e12d91f36752f4c79840379609b8def6f39ab8a13",
+        "state-paused.png": "5ebff3ae18b48af0a8c60a31ebf3f211aa4e65a121a6047c48fcda220d8992b7",
+        "tray-icon.png": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+        "window-icon.png": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e"
+      },
+      "buildIdentitySHA256": "cc862f87f46683546030871db33c9a9af97f20e515fc598348bfd1892857a396",
+      "captureMethod": "QScreen::grabWindow(root,frameGeometry)",
+      "captureNonce": "3b84fdec33db18061af80b920a8818c0",
+      "captureRegion": [
+        319,
+        63,
+        1282,
+        985
+      ],
+      "capturedUTC": "2026-10-24T18:53:21.059Z",
+      "executableSHA256": "f3e12bebfa0ef3f08515b2c1e029685bd4c3192875eba5fe2891e59094695a9c",
+      "height": 985,
+      "iconStateProof": "actual-tray-object-presentation-only",
+      "kind": "native-window-framebuffer",
+      "nativeWindowId": "8388619",
+      "platform": "xcb",
+      "resourceSHA256": "86acca5004fbe90a471230159b452d3eb4a3663db30dac5d26523f43f470d926",
+      "status": "captured",
+      "title": "StreamStrike - OBS 33.0.0-streamstrike (SAFE MODE) - Profile: StreamStrike fixture - Scenes: StreamStrike fixture",
+      "trayAvailable": true,
+      "trayVisible": true,
+      "uiIconReadiness": {
+        "originalSvgPixmap": {
+          "height": 16,
+          "nonTransparentPixels": 52,
+          "rgbaSHA256": "a84244d071a87e6118914a3877298c4a02d7b9bc20897ead6ccd360a8943e96f",
+          "width": 16
+        },
+        "originalSvgResource": ":/res/images/plus.svg",
+        "originalSvgSHA256": "559bbcc914d0ee4a4c61f2af615f4cfac4100f90f93ac2de0b8a9cf3a4af9891",
+        "svgImageReader": true,
+        "toolbarButtons": {
+          "scenesToolbar/actionAddScene": {
+            "alphaMatchesOriginal": true,
+            "enabled": true,
+            "height": 16,
+            "nonTransparentPixels": 52,
+            "rgbaSHA256": "fe033ae43e91dc6f605528f44268ad6c6a8fb85cbd3b5e5a140a569798a24f9b",
+            "visible": true,
+            "width": 16
+          },
+          "sourcesToolbar/actionAddSource": {
+            "alphaMatchesOriginal": true,
+            "enabled": true,
+            "height": 16,
+            "nonTransparentPixels": 52,
+            "rgbaSHA256": "fe033ae43e91dc6f605528f44268ad6c6a8fb85cbd3b5e5a140a569798a24f9b",
+            "visible": true,
+            "width": 16
+          }
+        }
+      },
+      "width": 1282
+    },
+    "files": {
+      "resource.png": {
+        "sha256": "86acca5004fbe90a471230159b452d3eb4a3663db30dac5d26523f43f470d926",
+        "bytes": 27439,
+        "dimensions": [
+          1024,
+          1024
+        ],
+        "decoded_rgba_sha256": "2f39c3578eab88ceee0cd6927e0a18f26408c7e4b68ab77486fc8b7fbc9c3eaa"
+      },
+      "application-icon.png": {
+        "sha256": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+        "bytes": 5861,
+        "dimensions": [
+          256,
+          256
+        ],
+        "decoded_rgba_sha256": "b76617136f7c10f01344d54de87793641230b24be84f512065cb3e633cfff97a"
+      },
+      "window-icon.png": {
+        "sha256": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+        "bytes": 5861,
+        "dimensions": [
+          256,
+          256
+        ],
+        "decoded_rgba_sha256": "b76617136f7c10f01344d54de87793641230b24be84f512065cb3e633cfff97a"
+      },
+      "tray-icon.png": {
+        "sha256": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+        "bytes": 5861,
+        "dimensions": [
+          256,
+          256
+        ],
+        "decoded_rgba_sha256": "b76617136f7c10f01344d54de87793641230b24be84f512065cb3e633cfff97a"
+      },
+      "state-active.png": {
+        "sha256": "ff3c73157fa67d5ff241987e12d91f36752f4c79840379609b8def6f39ab8a13",
+        "bytes": 7926,
+        "dimensions": [
+          256,
+          256
+        ],
+        "decoded_rgba_sha256": "2143816ce35dd84373d20f790b5873cfbfcc39dac07a47ffdba647653b7d4f64"
+      },
+      "state-paused.png": {
+        "sha256": "5ebff3ae18b48af0a8c60a31ebf3f211aa4e65a121a6047c48fcda220d8992b7",
+        "bytes": 7980,
+        "dimensions": [
+          256,
+          256
+        ],
+        "decoded_rgba_sha256": "5abe01eeb16027274eb9b3062203a81415b8a2e3a4b3b491c51a14c8e0ef1a41"
+      },
+      "native.png": {
+        "sha256": "105641bb45d18ed079b312a26e19a10e0841f294ae26e82527f2d308959322b1",
+        "bytes": 60435,
+        "dimensions": [
+          1282,
+          985
+        ],
+        "decoded_rgba_sha256": "14c6adf2d0ae9354daae38fa3a17fe8c178e9d5b9f9627007647772fbe79f12f"
+      }
+    },
+    "native_unique_colors": 8038,
+    "runtime_dependency_report_sha256": "e0127cf8e9cd0a1e82dd8eea67e281cd1e4c1ff02aded71ccd775590b4cd73f3",
+    "installed_elf_count": 39
+  },
+  "artifact_file_sha256": {
+    "build.json": "90b1b0d073826fcd1c5b51fb7553aa0dd1676bb9e0c5e530b1c81fa5d58b1189",
+    "capture/application-icon.png": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+    "capture/native.png": "105641bb45d18ed079b312a26e19a10e0841f294ae26e82527f2d308959322b1",
+    "capture/resource.png": "86acca5004fbe90a471230159b452d3eb4a3663db30dac5d26523f43f470d926",
+    "capture/runtime.json": "dc5a62ebd2f31db87bb3ea0420d64cdc0a31729ddea3e0d5fbd6bdcb5cf6cac8",
+    "capture/state-active.png": "ff3c73157fa67d5ff241987e12d91f36752f4c79840379609b8def6f39ab8a13",
+    "capture/state-paused.png": "5ebff3ae18b48af0a8c60a31ebf3f211aa4e65a121a6047c48fcda220d8992b7",
+    "capture/tray-icon.png": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+    "capture/verified.json": "db4ece1f426b0b7a187f40285b104305707aaf4e8a1e51afd2743091125c464a",
+    "capture/window-icon.png": "6872839fe54737d5781e6480e7453cc41b953701b70147c576780a9842902e5e",
+    "obs-logs/2026-10-24 18-53-18.txt": "6b72406fc20e7eaeeab912d8920edc975a6d12ba94455498e10b4593a43e47d8",
+    "obs-source.lock.json": "a41fae36932cb794dbeb8c761f1df7692f9dc230d7b8433a5f39d6fba95f3c21",
+    "overlay.json": "e0403ed8edcf7f8f3c1a98df71ee00a2cbdac23e22fe0ebcb2e55e90f7eaff1c",
+    "process-exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "runtime-dependencies.json": "e0127cf8e9cd0a1e82dd8eea67e281cd1e4c1ff02aded71ccd775590b4cd73f3",
+    "runtime.log": "30f2c033edba34cd8dcc01ca1f3f2c14e0b3347b92951b1884d3a812c1d0b3a9",
+    "streamstrike-checkout.txt": "4e0bf6c3099b4f81d89db3be6c24bf31f4f2712b98613680979c5d45e7c4bb66",
+    "tray.log": "e04fb00dfd76eaaebce7a39840220489d633d04f88dfc0726a0c5b1e22711da2",
+    "window-manager.log": "6f748c3cd02a858c087697c3afac639205c62b7b206558bd40d1bcbd98165a5c"
+  },
+  "process": {
+    "exit_code": 0,
+    "normal_startup": true,
+    "normal_shutdown": true,
+    "reported_memory_leaks": 0,
+    "warning_limits": [
+      "Missing DBus/session portal services in the ephemeral host",
+      "Unavailable optional DRM/DeckLink/NVENC/v4l2loopback device facilities",
+      "Safe mode disables scripting; no ordinary-profile or script-feature acceptance",
+      "Fresh empty-profile scene-file migration warning",
+      "Nonfatal frontend callback warnings during shutdown"
+    ]
+  },
+  "review": {
+    "status": "accepted for the stated Linux UI-identity screenshot scope",
+    "checks": [
+      "Root full-frame visual review",
+      "Independent full-frame and idle/active/paused icon review",
+      "Independent reproduction of capture and runtime-report validation",
+      "Exact tested merge tree equals reviewed source tree"
+    ],
+    "reviewed_date_utc": "2026-10-24"
+  },
+  "publication_note": "This PNG and sidecar are a documentation-only addition after the capture. The capture source identities above remain the actual tested source; they are not rewritten to the later documentation commit."
+}

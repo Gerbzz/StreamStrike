@@ -33,13 +33,13 @@
 **Interfaces:** `StreamStrikeBranding::icon(State)` supplies Qt icon states; capture hook receives actual OBSBasic QWidget and tray object, only on explicit environment opt-in.
 - [x] Define failing Qt tests for original master resource identity and distinct state pixels/title/icon logic.
 - [x] Implement shared Qt icon helper, actual app/window/tray use and opt-in readback/native capture/normal close.
-- [ ] Validate against exact donor anchors and compile/test in hosted original dependencies; do not infer local native pass.
+- [x] Validate exact donor anchors and compile/test in hosted original dependencies (run `40121353686`; no local native inference).
 
 ### Task 3: Existing hosted acceptance and documentation
 **Files:** `.github/workflows/obs-foundation.yml`, `tools/verify_obs_capture.py`, `tests/test_obs_capture.py`, README/docs/evidence.
 **Interfaces:** capture output carries native PNG, raw Qt icon/resource exports and JSON; verifier binds source/overlay/binary/resource and validates image data/state distinctions.
 - [x] Write failing acceptance tests for missing/stale/mismatched artifacts and degenerate PNG.
 - [x] Add bounded isolated Xvfb capture after unchanged original build, keep provenance/diagnostics on failure, no binary release.
-- [ ] Run full local suite and independent review; publish draft using reviewed exact files only.
-- [ ] Inspect actual hosted artifacts and image; add exact capture and truthful caption only after success.
+- [x] Run full local suite and independent review; publish draft using reviewed exact files only.
+- [x] Inspect actual hosted artifacts and image; add the unchanged capture and truthful safe-mode/empty-scene caption after run `40121353686` and independent/root visual approval.
 - [ ] Root merges only reviewed exact-head hosted proof. Report remaining OS packaging limitations.

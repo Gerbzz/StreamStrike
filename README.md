@@ -17,8 +17,21 @@ not the retired custom Rust project-editor UI. The pinned upstream source is
 `obsproject/obs-studio` commit `72e86655715d9a25d69ce446aa4dd44ba58e10d2`
 (OBS 33.0.0). Original C/C++ compilation passed in
 [run 40045870669](https://github.com/Gerbzz/StreamStrike/actions/runs/40045870669).
-This is a source-development baseline, **not a Rust rewrite, verified native
-capture/recording acceptance, installer, or StreamStrike release**.
+This remains **original C/C++ OBS, not a Rust rewrite**. The bounded Linux UI
+identity capture below is verified; recording, streaming, hardware, installers
+and release readiness are not established by it.
+
+## Current native OBS frontend — Linux
+
+![Actual StreamStrike-branded OBS frontend with original toolbar icons, in a safe-mode empty-scene fixture](assets/screenshots/streamstrike-obs-linux-20261024.png)
+
+Unmodified native window captured on **2026-10-24**, from source
+[`aa18f3bc`](https://github.com/Gerbzz/StreamStrike/commit/aa18f3bcb9cf696933e08e0116debc07bd15c18b)
+in [hosted run 40121353686](https://github.com/Gerbzz/StreamStrike/actions/runs/40121353686).
+The existing StreamStrike mark is verified in the actual application/window and
+idle/active/paused tray readbacks; original OBS toolbar icons render correctly.
+This is an isolated **Linux safe-mode, empty-scene** launch and normal close—not
+a recording or streaming demonstration. [Source, hashes and scope](assets/screenshots/streamstrike-obs-linux-20261024.provenance.json).
 
 ## Default developer application: actual OBS with StreamStrike identity
 
@@ -42,7 +55,7 @@ original donor. The branded helper requires this exact checksum-verified archive
 and canonical prepared location; an arbitrary external CEF directory is not its
 ownership-provenance contract. The hosted workflow demonstrates the full setup.
 
-The branding helper builds a separate tracked-source copy with a hash-locked overlay; the original donor and its original build remain unchanged. It wires the existing mark into the actual Qt window and all idle/active/paused tray states, retaining the OBS frontend and media engine. Native verification is a required hosted gate, not established merely by these source changes. [Overlay, validation and platform limits](docs/OBS_BRANDING.md).
+The branding helper builds a separate tracked-source copy with a hash-locked overlay; the original donor and its original build remain unchanged. It wires the existing mark into the actual Qt window and all idle/active/paused tray states, retaining the OBS frontend and media engine. The bounded Linux gate above passed; future changes still require source-matched native verification, not source tests alone. [Overlay, validation and platform limits](docs/OBS_BRANDING.md).
 
 `fetch` refuses an existing directory. `build` verifies the donor identity,
 uses its original `ubuntu` CMake preset with browser support and relocatable runtime paths enabled, and installs
@@ -102,4 +115,4 @@ The company mark in this masthead is the existing [official PWDS logo](https://g
 
 ## Product artwork
 
-The StreamStrike product mark above has an original [SVG master](assets/branding/StreamStrike-logo.svg) and matching PNG. [Asset provenance](assets/branding/StreamStrike-logo.provenance.json) records how it was created and the exact file hashes. The PWDS publisher artwork and inherited software credits are unchanged. Historical screenshots retain the artwork visible in their original captured builds. The current native OBS screenshot is not substituted with the retired custom GUI; a new image is published only after exact-source hosted capture and visual review.
+The StreamStrike product mark above has an original [SVG master](assets/branding/StreamStrike-logo.svg) and matching PNG. [Asset provenance](assets/branding/StreamStrike-logo.provenance.json) records how it was created and the exact file hashes. The PWDS publisher artwork and inherited software credits are unchanged. Historical screenshots retain the artwork visible in their original captured builds. The current image is the actual source-matched OBS frontend, reviewed after hosted capture—not the retired custom GUI.

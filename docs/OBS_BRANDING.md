@@ -134,6 +134,22 @@ cryptographic attestation of a genuine UI: fresh hosted-process provenance and
 human inspection of the framebuffer remain mandatory. No current OBS screenshot is claimed by source tests alone.
 The retained old WGPU project editor image is historical and must not be reused.
 
+### Verified Linux capture
+
+[Run 40121353686](https://github.com/Gerbzz/StreamStrike/actions/runs/40121353686)
+passed the original/branded builds, real Qt SVG/icon tests, archive-bound ownership
+and 39-ELF closure checks, fresh native identity capture, and normal close with
+exit 0. Root and independent visual review accepted the complete original OBS
+frame with the StreamStrike mark and correctly rendered original toolbar icons.
+The [unchanged PNG and source sidecar](../assets/screenshots/streamstrike-obs-linux-20261024.provenance.json)
+remain bound to source head `aa18f3bcb9cf696933e08e0116debc07bd15c18b`, tested
+checkout `9549373dfd24aec4603f7991d402be230c38278b`, and tree
+`3d604075c9595cb6f979e3c469c3dad49541bff9`. A later documentation commit is not
+represented as the source of that capture. The fixture was safe mode with an empty
+scene; active/paused tray checks changed presentation only, not media state.
+Nonfatal DBus/device/profile/shutdown warnings remain documented in the sidecar;
+this is not a clean-device or full-feature acceptance claim.
+
 ## Explicitly unfinished
 
 This first native gate is Linux only. Windows ICO/PE resources, macOS app iconsets,
