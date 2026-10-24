@@ -12,5 +12,10 @@ class ScalarOracle(unittest.TestCase):
                                 check=True, capture_output=True)
         self.assertEqual(result.stdout, (ROOT / 'oracle/obs_scalar.tsv').read_bytes())
 
+    def test_pinned_c_numeric_getters_and_unsets_match_checked_in_fixture(self):
+        result = subprocess.run([sys.executable, str(ROOT / 'oracle/obs_numeric_oracle.py')],
+                                check=True, capture_output=True)
+        self.assertEqual(result.stdout, (ROOT / 'oracle/obs_numeric.tsv').read_bytes())
+
 if __name__ == '__main__':
     unittest.main()

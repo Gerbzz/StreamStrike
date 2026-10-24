@@ -4,7 +4,7 @@
 // See evidence/upstream/COPYING for the license and docs/OBS_SCALAR_PARITY.md
 // for exact upstream provenance and the intentionally bounded port domain.
 
-//! Owned Rust port of OBS boolean/string settings-item resolution.
+//! Owned Rust port of OBS scalar settings-item resolution.
 //!
 //! A future settings consumer can hold one item per OBS key, apply a source's
 //! defaults, and then apply the user's overrides. This module does not read or
@@ -18,6 +18,20 @@
 //! assert!(!enabled.get_bool(Read::Effective)); // explicit false wins
 //! enabled.unset(Tier::User);
 //! assert!(enabled.get_bool(Read::Effective)); // native default restored
+//! # Ok::<(), &'static str>(())
+//! ```
+
+//! Numeric subtypes may differ across tiers without changing the item family:
+//! ```
+//! use streamstrike::obs_scalar::{NumberType, Read, ScalarItem, ScalarValue, Tier};
+//! let mut rate = ScalarItem::default();
+//! rate.set(Tier::Default, ScalarValue::Integer(60))?;
+//! rate.set(Tier::User, ScalarValue::Double(59.94))?;
+//! assert_eq!(rate.get_int(Read::Effective), Ok(59));
+//! assert_eq!(rate.number_type(), Some(NumberType::Double));
+//! rate.unset(Tier::User);
+//! assert_eq!(rate.get_int(Read::Effective), Ok(60));
+//! assert_eq!(rate.number_type(), Some(NumberType::Integer));
 //! # Ok::<(), &'static str>(())
 //! ```
 
@@ -37,9 +51,12 @@ pub enum Read {
     Autoselect,
 }
 
-/// Only boolean and UTF-8 string items are in this port's current domain.
+/// Primitive values in this port's domain. Integer and Double share the native
+/// OBS_DATA_NUMBER family, but each tier retains its own numeric subtype.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ScalarValue {
+    Integer(i64),
+    Double(f64),
     Boolean(bool),
     String(String),
 }
@@ -52,8 +69,63 @@ pub struct ScalarItem {
     autoselect: Option<ScalarValue>,
 }
 
+/// Subtype tag carried separately by each native OBS numeric tier.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NumberType {
+    Integer,
+    Double,
+}
+/// A double-to-integer conversion that native C does not define.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IntConversionError {
+    NonFinite,
+    OutOfRange,
+}
+
 impl ScalarItem {
-    /// Replace one tier, retaining the others. Reject unsupported mixed types and
+    /// Native integer read on the defined conversion domain. Missing/wrong-type
+    /// values return zero. Doubles truncate toward zero, but NaN/infinity and
+    /// out-of-range values return an error instead of reproducing C undefined
+    /// behavior or silently using Rust's saturating float-to-integer cast.
+    pub fn get_int(&self, read: Read) -> Result<i64, IntConversionError> {
+        match self.resolve(read) {
+            Some(ScalarValue::Integer(value)) => Ok(*value),
+            Some(ScalarValue::Double(value)) => {
+                if !value.is_finite() {
+                    return Err(IntConversionError::NonFinite);
+                }
+                // 2^63 is exactly representable; i64::MAX as f64 rounds UP to
+                // this excluded endpoint. The lower endpoint -2^63 is valid.
+                if !(-9223372036854775808.0..9223372036854775808.0).contains(value) {
+                    return Err(IntConversionError::OutOfRange);
+                }
+                Ok(*value as i64)
+            }
+            _ => Ok(0),
+        }
+    }
+
+    /// Native double read. Integer rounding is checked against the host C
+    /// oracle; stored double bits (including signed zero) are retained.
+    pub fn get_double(&self, read: Read) -> f64 {
+        match self.resolve(read) {
+            Some(ScalarValue::Integer(value)) => *value as f64,
+            Some(ScalarValue::Double(value)) => *value,
+            _ => 0.0,
+        }
+    }
+
+    /// Like obs_data_item_numtype, inspect the effective value, not necessarily
+    /// the user tier. An absent or nonnumeric value has no numeric subtype.
+    pub fn number_type(&self) -> Option<NumberType> {
+        match self.resolve(Read::Effective) {
+            Some(ScalarValue::Integer(_)) => Some(NumberType::Integer),
+            Some(ScalarValue::Double(_)) => Some(NumberType::Double),
+            _ => None,
+        }
+    }
+
+    /// Replace one tier, retaining the others. Reject unsupported cross-family types and
     /// interior NUL atomically. Native OBS uses one type tag for all tier storage;
     /// this safe subset does not reproduce cross-type byte reinterpretation.
     pub fn set(&mut self, tier: Tier, value: ScalarValue) -> Result<(), &'static str> {
@@ -63,7 +135,9 @@ impl ScalarItem {
             }
         }
         if let Some(existing) = self.resolve(Read::Effective) {
-            if std::mem::discriminant(existing) != std::mem::discriminant(&value) {
+            let both_numeric = matches!(existing, ScalarValue::Integer(_) | ScalarValue::Double(_))
+                && matches!(&value, ScalarValue::Integer(_) | ScalarValue::Double(_));
+            if !both_numeric && std::mem::discriminant(existing) != std::mem::discriminant(&value) {
                 return Err("mixed scalar types are outside the supported OBS item domain");
             }
         }

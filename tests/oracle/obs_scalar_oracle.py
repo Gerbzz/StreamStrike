@@ -43,7 +43,7 @@ typedef struct obs_data_item {
  size_t name_len, data_len, data_size, default_len, default_size, autoselect_size;
 } obs_data_item_t;
 typedef void *(*get_data_t)(obs_data_item_t *);
-/* For strings/booleans upstream release helpers have no side effects.
+/* For primitive scalar types upstream release helpers have no side effects.
    Objects/arrays are deliberately outside this executable's domain. */
 static void item_data_release(obs_data_item_t *item) { (void)item; }
 static void item_default_data_release(obs_data_item_t *item) { (void)item; }
@@ -80,9 +80,13 @@ int main(void) {
  return 0;
 }
 '''
-with tempfile.TemporaryDirectory(prefix='obs-scalar-oracle-') as folder:
-    c = Path(folder) / 'oracle.c'
-    exe = Path(folder) / 'oracle'
-    c.write_text(source[:source.index('#include')] + preamble + ''.join(map(function, names)) + harness)
-    subprocess.run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', str(c), '-o', str(exe)], check=True)
-    subprocess.run([str(exe)], check=True)
+def run(harness, preamble=preamble, names=names):
+    with tempfile.TemporaryDirectory(prefix='obs-scalar-oracle-') as folder:
+        c = Path(folder) / 'oracle.c'
+        exe = Path(folder) / 'oracle'
+        c.write_text(source[:source.index('#include')] + preamble + ''.join(map(function, names)) + harness)
+        subprocess.run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', str(c), '-o', str(exe)], check=True)
+        subprocess.run([str(exe)], check=True)
+
+if __name__ == '__main__':
+    run(harness)
