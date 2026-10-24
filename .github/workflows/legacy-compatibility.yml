@@ -1,0 +1,20 @@
+name: Legacy JSON compatibility
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Preserve project model, document state and storage behavior
+        run: |
+          cargo test --locked --all-targets
+          cargo build --locked --bin streamstrike
+          git diff --exit-code -- Cargo.lock
+      - name: Check original OBS entrypoint guardrails
+        run: python3 -m unittest discover -s tests -p 'test_obs_*.py' -v

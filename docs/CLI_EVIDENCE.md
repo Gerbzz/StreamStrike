@@ -1,3 +1,7 @@
+> Historical checkpoint: the custom GUI direction below is superseded by the
+> [original OBS foundation and preservation cutover](OBS_CUTOVER.md). Existing
+> capture artifacts describe their old source, not the current application.
+
 # CLI evidence workflow
 
 The [Windows CLI evidence workflow](../.github/workflows/cli-evidence.yml)

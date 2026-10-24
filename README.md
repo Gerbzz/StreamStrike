@@ -12,76 +12,76 @@
 
 <h1 align="center">StreamStrike</h1>
 
-**Set the scene for what comes next.**
+StreamStrike now starts from **the original OBS Studio frontend and libobs engine**,
+not the retired custom Rust project-editor UI. The pinned upstream source is
+`obsproject/obs-studio` commit `72e86655715d9a25d69ce446aa4dd44ba58e10d2`
+(OBS 33.0.0). Original C/C++ compilation passed in
+[run 40045870669](https://github.com/Gerbzz/StreamStrike/actions/runs/40045870669).
+This is a source-development baseline, **not a Rust rewrite, verified native
+capture/recording acceptance, installer, or StreamStrike release**.
 
-StreamStrike is a local scene and source project editor for a future recorder and streamer. Create a project, arrange scenes, describe display and audio sources, and save the setup for later work.
+## Default developer application: original OBS
 
-## Current status
+The supported helper path currently targets Ubuntu 26.04. Prepare the toolchain
+and dependencies required by the pinned upstream source, including CMake, Ninja,
+Qt, FFmpeg and CEF. This helper does not install system dependencies, invoke sudo,
+or silently reduce frontend/browser functionality. The exact fully provisioned
+hosted build remains in [obs-foundation.yml](.github/workflows/obs-foundation.yml).
 
-The native editor work in [PR #2](https://github.com/Gerbzz/StreamStrike/pull/2) and [PR #3](https://github.com/Gerbzz/StreamStrike/pull/3) merged on 18 October 2026. Main includes a native Rust scene/source project editor alongside the CLI. It opens, creates, edits, validates, and saves real `.streamstrike` projects. Source selectors are descriptions only: no display or audio device is opened. There is no live preview, recording, replay buffer, mixer signal, or streaming.
-
-## Features
-
-- Create and select scenes in a local project.
-- Describe display, window, microphone, and desktop-audio sources.
-- Store mute and gain settings for audio sources.
-
-## Native editor screenshot
-
-![The actual StreamStrike native scene/source project editor, showing the Game scene and synthetic Monitor and Voice source selectors](docs/evidence/streamstrike-editor-linux-20261023.png)
-
-*An unmodified 1160×740 frame from the running native WGPU editor on a hosted Ubuntu 24.04 runner under Xvfb and software Vulkan/Lavapipe, captured on 23 October 2026 in [successful run 40016933156](https://github.com/Gerbzz/StreamStrike/actions/runs/40016933156). It shows project setup only: selectors are synthetic text values and no devices were opened. There is no live preview, recording, or streaming. [Exact source, hash, environment, and limitations](docs/evidence/streamstrike-editor-linux-20261023.provenance.json).*
-
-The product logo above is README artwork; runtime and packaged-icon integration is not part of this capture.
-
-## Build and install
-
-Source builds require Rust with support for the manifest's 2024 edition. The source defines CLI and native editor targets; no installer is included.
-
-```text
-cargo build --locked --bin streamstrike --bin streamstrike-editor
+```sh
+python3 tools/obs_foundation.py fetch
+python3 tools/obs_foundation.py build --cef-root /absolute/path/to/prepared/upstream/CEF
+python3 tools/obs_foundation.py
 ```
 
-### Run the editor
+`fetch` refuses an existing directory. `build` verifies the donor identity,
+uses its original `ubuntu` CMake preset with browser support and relocatable runtime paths enabled, and installs
+to the checkout-local `build_ubuntu/install/RelWithDebInfo`. The no-argument
+command (or `run`) launches only that actual `bin/obs`, checking its source pin
+and recorded build hash. If source, binary, receipt, dependencies or runtime are
+missing, it fails explicitly; it never launches the old editor or system OBS.
+`record-build` can stamp a preexisting executable: its receipt is only a local
+identity check, **not proof that the binary was compiled from the pinned source**.
+The verified hosted build and its provenance remain authoritative build evidence.
+Build concurrency honors `CMAKE_BUILD_PARALLEL_LEVEL` if set; otherwise CMake
+uses the native generator default. Set that environment variable to a job count
+appropriate for measured available CPU and memory; the helper imposes no fixed cap.
 
-On a Windows desktop with Rust installed, run `cargo run --locked --bin streamstrike-editor`. Use New, Open, Save, and Save as to manage `.streamstrike` files; the Scenes and Sources panes edit the same validated project model as the CLI. `--open PATH.streamstrike` opens a project at launch. The toolbar supports Ctrl+N, Ctrl+O, and Ctrl+S. Unsaved project changes prompt before New, Open, or Close. A hosted native screenshot attempt uses `--capture OUTPUT.png` with the included synthetic project; it does not exercise physical devices.
+Windows/macOS source work should follow the pinned upstream platform build
+instructions; this helper does not claim those platforms have passed acceptance.
+Running OBS uses normal OBS settings/profile locations and can change them;
+back up existing OBS profiles before developer testing. No legacy `.streamstrike`
+project is automatically opened, converted, migrated or overwritten.
 
-## Validation status
+## Preserved legacy project compatibility
 
-### Verified Windows CLI run
+The old GUI entrypoint, GUI-only dependencies and screenshot workflow are retired.
+Their code and captures remain recoverable in Git history; existing evidence and
+artwork remain in the tree, labeled historical rather than current application UI.
+The Rust project model, validation, atomic storage, document state and CLI remain
+intact for compatibility with existing JSON `.streamstrike` projects:
 
-The [Windows run on the exact source commit](https://github.com/Gerbzz/StreamStrike/actions/runs/38704970118) passed two Rust tests, built the CLI, and executed these commands against a synthetic local project:
-
-```text
-streamstrike new demo.streamstrike
-streamstrike add-scene demo.streamstrike Game
-streamstrike select-scene demo.streamstrike 2
-streamstrike add-source demo.streamstrike 2 Monitor display primary
-streamstrike add-source demo.streamstrike 2 Voice microphone default
-streamstrike set-audio demo.streamstrike 4 false -6
-streamstrike show demo.streamstrike
+```sh
+cargo test --locked --all-targets
+cargo run --locked --bin streamstrike -- show PATH.streamstrike
 ```
 
-The [actual CLI transcript](docs/evidence/windows-cli-transcript.txt), [resulting project](docs/evidence/demo.streamstrike), and [capture provenance](docs/evidence/README.md) are retained in this repository. For example, the executable reported `added source ID 4; selector is stored but not opened` and `stored audio settings for source ID 4; no audio device is opened`. This is command output from the earlier CLI checkpoint. The native editor has a separate [hosted build and capture workflow](.github/workflows/editor-preview.yml). The source-matched native Linux screenshot above is now retained. The Windows attempt in that same run could not find a suitable WGPU adapter; its passing build is not Windows GUI acceptance. The retained CLI evidence does not establish capture, recording, or streaming support.
+The CLI is **not** the application launcher or media engine. Its create/edit/save
+commands are still available; they do not open media devices. No automatic OBS
+importer exists yet: preserve originals and map unsupported fields explicitly in
+a separate future conversion, writing new files rather than replacing user data.
+See [the preservation audit](docs/OBS_CUTOVER.md) and
+[OBS foundation direction](docs/OBS_FOUNDATION.md).
 
-`new` refuses an existing path. Edits validate the full project and use a staging file and old-project backup. If a save is interrupted, the program leaves sidecars for inspection and refuses to overwrite them. The format is limited to 1 MiB. Nothing in this CLI records audio/video or contacts a service.
+## Acceptance and licenses
 
-## Next functional slice
-
-1. Review and test the native editor on a real desktop, including keyboard focus, dialogs, and save recovery.
-2. Pin a verified engine/API combination and document license, notice, runtime, and platform obligations. Resolve real display, window, and audio devices through that engine and report unavailable devices clearly.
-3. Show a real preview and meters, then start and stop bounded local recording. Verify the output and test device loss, disk-full behavior, and finalization.
-4. Add replay buffering and streaming only after recording is stable.
-
-See [DECISIONS.md](docs/DECISIONS.md) for options and dependency status.
-
-## Development direction
-
-The native editor is a project setup tool; a media engine is the next milestone. `libobs` is a researched candidate, not a chosen or bundled dependency. The interface uses the StreamStrike name and shows the existing approved PWDS mark in About; the distinct [StreamStrike product logo](assets/branding/StreamStrike-logo.png) is now documented in the README, while runtime icon integration remains unverified. See [DECISIONS.md](docs/DECISIONS.md).
-
-## Credits and licenses
-
-No first-party source license grant is made by this checkpoint; choose an explicit project license before distribution. Dependency notices and license compatibility remain distribution gates in [DECISIONS.md](docs/DECISIONS.md). No OBS Project affiliation is claimed.
+Next gates are original OBS on a real desktop: display/microphone capture,
+preview, bounded recording, stop/finalize, independent decode, and failure paths.
+Compilation and launch-helper unit tests do not establish those results.
+OBS retains its upstream GPL-2.0-or-later notices; all supplied upstream fixtures
+and approved artwork are preserved. Distribution requires corresponding source,
+build scripts and dependency notices. No first-party license grant or OBS Project
+affiliation is claimed by this source checkpoint.
 
 ### PWDS publisher artwork
 
