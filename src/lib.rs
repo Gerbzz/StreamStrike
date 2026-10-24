@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 pub mod editor;
 pub mod storage;
+pub mod obs_scalar;
 
 pub const PROJECT_VERSION: u32 = 1;
 pub const MAX_PROJECT_BYTES: u64 = 1024 * 1024;
