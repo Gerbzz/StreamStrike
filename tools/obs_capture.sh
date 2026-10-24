@@ -38,6 +38,7 @@ path.write_text(json.dumps(build,indent=2)+"\n")
 print(nonce,identity)
 PYTHON
 )
+cp "$root/foundation/streamstrike-obs/build_ubuntu/streamstrike-runtime-dependencies.json" "$evidence/runtime-dependencies.json"
 git -C "$root" rev-parse HEAD > "$evidence/streamstrike-checkout.txt"
 cp "$root/foundation/branding/overlay.json" "$evidence/overlay.json"
 cp "$root/foundation/obs-source.lock.json" "$evidence/obs-source.lock.json"
@@ -70,4 +71,4 @@ printf '%s\n' "$result" > "$evidence/process-exit.txt"
 if test -d "$fixture/config/obs-studio/logs"; then cp -R "$fixture/config/obs-studio/logs" "$evidence/obs-logs"; fi
 if ((result != 0)); then echo 'Actual branded OBS did not close successfully' >&2; exit "$result"; fi
 python3 "$root/tools/obs_branding.py" verify
-python3 "$root/tools/verify_obs_capture.py" "$evidence/capture" --build-evidence "$evidence/build.json"
+python3 "$root/tools/verify_obs_capture.py" "$evidence/capture" --build-evidence "$evidence/build.json" --runtime-evidence "$evidence/runtime-dependencies.json"

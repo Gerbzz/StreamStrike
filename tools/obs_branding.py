@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 import obs_foundation
+import obs_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'foundation/branding/overlay.json'
@@ -255,6 +256,7 @@ def build():
         raise ValueError('branded developer build currently verified on Linux only')
     build_dir = COPY / 'build_ubuntu'; build_dir.mkdir(exist_ok=True)
     stamp = build_dir / 'streamstrike-branding-build.json'; stamp.unlink(missing_ok=True)
+    runtime_report = build_dir / 'streamstrike-runtime-dependencies.json'; runtime_report.unlink(missing_ok=True)
     cache = (source / 'build_ubuntu/CMakeCache.txt').read_text()
     cef = re.search(r'^CEF_ROOT_DIR:[^=]+=([^\n]+)$', cache, re.M)
     if not cef or not Path(cef[1]).is_dir():
@@ -274,18 +276,36 @@ def build():
     binary = obs_foundation.executable(COPY)
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise ValueError('branded OBS binary missing')
-    stamp.write_bytes(canonical({'donor_commit': overlay['donor_commit'], 'overlay_sha256': receipt['overlay_sha256'],
+    runtime = obs_runtime.audit_runtime(prefix)
+    with runtime_report.open('xb') as report:
+        report.write(canonical(runtime) + b'\n')
+    identity = {'donor_commit': overlay['donor_commit'], 'overlay_sha256': receipt['overlay_sha256'],
                                 'source_inventory_sha256': sha256(canonical(receipt['files'])),
-                                'executable_sha256': sha256(binary.read_bytes())}) + b'\n')
+                                'executable_sha256': sha256(binary.read_bytes()),
+                                'runtime_inventory_sha256': sha256(canonical(runtime['inventory'])),
+                                'runtime_report_sha256': sha256(canonical(runtime))}
+    with stamp.open('xb') as record:
+        record.write(canonical(identity) + b'\n')
+
+
+def runtime_digest(prefix):
+    return sha256(canonical(obs_runtime.runtime_inventory(prefix)))
 
 
 def validate_build(output, receipt):
     verify_generated_directory(output)
     binary = obs_foundation.executable(output)
-    stamp = json.loads((output / 'build_ubuntu/streamstrike-branding-build.json').read_text())
+    stamp_path = output / 'build_ubuntu/streamstrike-branding-build.json'
+    report_path = output / 'build_ubuntu/streamstrike-runtime-dependencies.json'
+    if stamp_path.is_symlink() or report_path.is_symlink():
+        raise ValueError('build receipt/report must not be symlinks')
+    stamp = json.loads(stamp_path.read_text())
+    report = json.loads(report_path.read_text())
     expected = {'donor_commit': receipt['donor_commit'], 'overlay_sha256': receipt['overlay_sha256'],
                 'source_inventory_sha256': sha256(canonical(receipt['files'])),
-                'executable_sha256': sha256(binary.read_bytes())}
+                'executable_sha256': sha256(binary.read_bytes()),
+                'runtime_inventory_sha256': runtime_digest(output / 'build_ubuntu/install/RelWithDebInfo'),
+                'runtime_report_sha256': sha256(canonical(report))}
     if stamp != expected or not os.access(binary, os.X_OK):
         raise ValueError('branded OBS build receipt differs from source or executable')
     return binary, stamp
@@ -293,7 +313,14 @@ def validate_build(output, receipt):
 
 def verify_build():
     source, overlay = checked(); receipt = verify_copy(COPY, overlay, ROOT, source)
-    return validate_build(COPY, receipt)
+    binary, stamp = validate_build(COPY, receipt)
+    # Recheck loader closure before launch; never inject search paths or disable modules.
+    runtime = obs_runtime.audit_runtime(COPY / 'build_ubuntu/install/RelWithDebInfo')
+    if sha256(canonical(runtime['inventory'])) != stamp['runtime_inventory_sha256']:
+        raise ValueError('runtime changed during dependency verification')
+    if sha256(canonical(runtime)) != stamp['runtime_report_sha256']:
+        raise ValueError('fresh dependency report differs from recorded build closure')
+    return binary, stamp
 
 
 def main():

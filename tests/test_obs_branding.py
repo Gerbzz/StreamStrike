@@ -263,6 +263,11 @@ class BrandingCopy(unittest.TestCase):
         os.symlink(outside, self.out/'frontend')
         with self.assertRaises(ValueError): self.m.verify_copy(self.out,self.overlay,self.root)
 
+    def fixture_runtime_report(self):
+        report={'fixture':'dependency closure exercised by real ELF tests'}
+        (self.out/'build_ubuntu/streamstrike-runtime-dependencies.json').write_text(json.dumps(report))
+        return self.m.sha256(self.m.canonical(report))
+
     def test_missing_build_receipt_and_changed_binary_rejected(self):
         self.assertTrue(hasattr(self.m,'validate_build'),'branded binary receipt gate missing')
         receipt = self.prepare()
@@ -271,11 +276,31 @@ class BrandingCopy(unittest.TestCase):
         with self.assertRaises(OSError): self.m.validate_build(self.out,receipt)
         stamp = {'donor_commit':self.pin,'overlay_sha256':receipt['overlay_sha256'],
                  'source_inventory_sha256':self.m.sha256(self.m.canonical(receipt['files'])),
-                 'executable_sha256':self.m.sha256(b'fixture executable')}
+                 'executable_sha256':self.m.sha256(b'fixture executable'),
+                 'runtime_inventory_sha256':self.m.runtime_digest(self.out/'build_ubuntu/install/RelWithDebInfo'),
+                 'runtime_report_sha256':self.fixture_runtime_report()}
         (self.out/'build_ubuntu/streamstrike-branding-build.json').write_text(json.dumps(stamp))
         self.m.validate_build(self.out,receipt)
         binary.write_bytes(b'changed executable')
         with self.assertRaisesRegex(ValueError,'build receipt'): self.m.validate_build(self.out,receipt)
+
+    def test_changed_installed_resource_rejected_even_when_executable_unchanged(self):
+        receipt=self.prepare();prefix=self.out/'build_ubuntu/install/RelWithDebInfo'
+        binary=prefix/'bin/obs';binary.parent.mkdir(parents=True);binary.write_bytes(b'fixture executable');binary.chmod(0o755)
+        resource=prefix/'share/resource.txt';resource.parent.mkdir();resource.write_text('original resource')
+        stamp={'donor_commit':self.overlay['donor_commit'],'overlay_sha256':receipt['overlay_sha256'],
+               'source_inventory_sha256':self.m.sha256(self.m.canonical(receipt['files'])),
+               'executable_sha256':self.m.sha256(binary.read_bytes()),
+               'runtime_inventory_sha256':self.m.runtime_digest(prefix),
+               'runtime_report_sha256':self.fixture_runtime_report()}
+        (self.out/'build_ubuntu/streamstrike-branding-build.json').write_text(json.dumps(stamp))
+        self.m.validate_build(self.out,receipt)
+        report_path=self.out/'build_ubuntu/streamstrike-runtime-dependencies.json'
+        report_path.write_text(json.dumps({'fixture':'modified report'}))
+        with self.assertRaisesRegex(ValueError,'build receipt'):self.m.validate_build(self.out,receipt)
+        self.fixture_runtime_report()
+        resource.write_text('modified installed resource')
+        with self.assertRaisesRegex(ValueError,'build receipt'):self.m.validate_build(self.out,receipt)
 
     def test_forged_receipt_does_not_authorize_modified_file(self):
         self.prepare(); (self.out/'COPYING').write_text('forged')

@@ -14,7 +14,7 @@ submodule pins, tracked Git object bytes and modes, then exports them into a new
 `foundation/streamstrike-obs` directory. It refuses an existing destination. The
 original checkout, Git history, notices, resources and original build remain.
 `foundation/branding/overlay.json` pins the input/output hashes and exact edits
-for six donor source files plus three new resource/helper files. Every later
+for eight donor source files plus three new resource/helper files. Every later
 verify/build/run rederives the expected copy from the clean donor and reviewed
 overlay; an edited receipt cannot authorize different source. Unlisted source,
 path escapes, dirty/missing submodules, changed assets or binaries fail closed.
@@ -44,6 +44,32 @@ state branches and media operations are preserved. No application settings or
 profile path, desktop ID, plugin API, credentials, update policy or user project
 is migrated. Ordinary launch has no capture behavior unless the explicit test
 environment variable is set.
+
+## Linux developer-runtime dependency closure
+
+The first actual native launch exposed an upstream relocatable-install gap:
+`frontend-tools.so` lives under `lib/.../obs-modules/core/`, while its required
+`libobs-scripting.so.30` is two directories above. The pinned Linux defaults only
+searched the module directory and its immediate parent. An executable-only `ldd`
+pass did not establish plugin runtime readiness; that original reference build
+is retained unchanged and is not claimed to have passed native acceptance.
+
+Two additional hash-locked CMake edits in the build copy append the existing
+package library directory, `$ORIGIN/../..`, to module install paths and to
+obs-browser's separate install path. Existing entries remain in order; browser's
+adjacent CEF `$ORIGIN/` stays first. Browser BUILD_RPATH, browser-page helper,
+scripting bindings, plugin features and the clean original donor are unchanged.
+No global loader configuration or library-path environment override is used.
+
+`tools/obs_runtime.py` inventories every installed regular file and symlink,
+stream-hashing large CEF assets. It inspects every installed real ELF with
+`readelf`/`ldd` in a clean inspection environment, handles static ELF explicitly,
+and rejects unresolved dependencies or shipped SONAMEs resolving to another
+installation. This covers ELF `DT_NEEDED` dependencies, not optional hardware
+drivers loaded at runtime or media/device acceptance. Build and launch require this closure; the receipt additionally
+binds the entire installed inventory and canonical closure-report digest, not
+only the main executable. A fresh audit must match both before launch. The capture
+artifact retains the matching dependency report and inventory hashes.
 
 ## Acceptance gates
 

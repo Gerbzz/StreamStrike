@@ -30,7 +30,7 @@ class NativeCapture(unittest.TestCase):
          'width':800,'height':500,'resourceSHA256':'86acca5004fbe90a471230159b452d3eb4a3663db30dac5d26523f43f470d926',
          'nativeWindowId':'123','captureMethod':'QScreen::grabWindow(root,frameGeometry)','captureRegion':[0,0,800,500],
          'trayAvailable':True,'trayVisible':True,'iconStateProof':'actual-tray-object-presentation-only','capturedUTC':'2026-10-24T00:00:00.000Z'}
-        self.build={'donor_commit':'72e86655715d9a25d69ce446aa4dd44ba58e10d2','overlay_sha256':'a'*64,'source_inventory_sha256':'b'*64,'executable_sha256':'c'*64}
+        self.build={'donor_commit':'72e86655715d9a25d69ce446aa4dd44ba58e10d2','overlay_sha256':'a'*64,'source_inventory_sha256':'b'*64,'executable_sha256':'c'*64,'runtime_inventory_sha256':'e'*64,'runtime_report_sha256':'f'*64}
         self.build['capture_nonce']='d'*32
         self.runtime['captureNonce']=self.build['capture_nonce']
         self.runtime['executableSHA256']=self.build['executable_sha256']
@@ -91,6 +91,22 @@ class NativeCapture(unittest.TestCase):
     def test_missing_artifact_manifest_rejected(self):
         del self.runtime['artifactSHA256'];self.save()
         with self.assertRaisesRegex(ValueError,'artifact'):self.check()
+    def test_runtime_inventory_report_is_bound_to_build_and_binary(self):
+        report={'version':1,'inventory':{'version':1,'files':{'bin/obs':{'sha256':self.build['executable_sha256']}}},'elf':{'bin/obs':{'needed':[]}}}
+        self.build['runtime_inventory_sha256']=self.m.sha256(json.dumps(report['inventory'],sort_keys=True,separators=(',',':')).encode())
+        self.build['runtime_report_sha256']=self.m.sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode())
+        self.m.validate_runtime_report(report,self.build)
+        report['inventory']['files']['bin/obs']['sha256']='a'*64
+        with self.assertRaisesRegex(ValueError,'inventory'):self.m.validate_runtime_report(report,self.build)
+    def test_tampered_closure_report_rejected_with_unchanged_inventory(self):
+        report={'version':1,'inventory':{'version':1,'files':{'bin/obs':{'sha256':self.build['executable_sha256']}}},'elf':{'bin/obs':{'needed':[],'runpath':[]}}}
+        self.build['runtime_inventory_sha256']=self.m.sha256(json.dumps(report['inventory'],sort_keys=True,separators=(',',':')).encode())
+        self.build['runtime_report_sha256']=self.m.sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode())
+        self.m.validate_runtime_report(report,self.build)
+        report['elf']['bin/obs']['runpath']=['/unrelated']
+        with self.assertRaisesRegex(ValueError,'report'):self.m.validate_runtime_report(report,self.build)
+    def test_empty_runtime_dependency_report_rejected(self):
+        with self.assertRaisesRegex(ValueError,'ELF'):self.m.validate_runtime_report({'version':1,'elf':{}},self.build)
     def test_png_crc_corruption_rejected(self):
         p=self.out/'native.png';b=bytearray(p.read_bytes());b[40]^=1;p.write_bytes(b)
         with self.assertRaisesRegex(ValueError,'PNG'):self.check()

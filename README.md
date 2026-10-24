@@ -47,6 +47,9 @@ missing, it fails explicitly; it never launches the old editor or system OBS.
 `record-build` can stamp a preexisting executable: its receipt is only a local
 identity check, **not proof that the binary was compiled from the pinned source**.
 The verified hosted build and its provenance remain authoritative build evidence.
+An executable-only loader check does not prove plugin readiness. The branded
+helper additionally verifies installed ELF dependency closure and a complete
+installed-file inventory; [the Linux install correction](docs/OBS_BRANDING.md#linux-developer-runtime-dependency-closure) remains part of the source-matched native gate.
 Build concurrency honors `CMAKE_BUILD_PARALLEL_LEVEL` if set; otherwise CMake
 uses the native generator default. Set that environment variable to a job count
 appropriate for measured available CPU and memory; the helper imposes no fixed cap.

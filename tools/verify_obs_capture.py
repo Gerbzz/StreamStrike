@@ -81,7 +81,7 @@ def validate_capture(folder, master_path, build):
     folder=Path(folder);master_data=Path(master_path).read_bytes()
     if sha256(master_data)!=MASTER:raise ValueError('master resource does not match published identity')
     if build.get('donor_commit')!=PIN:raise ValueError('wrong donor pin')
-    if any(not re.fullmatch('[a-f0-9]{64}',build.get(k,'')) for k in ['overlay_sha256','source_inventory_sha256','executable_sha256']):raise ValueError('invalid build identity')
+    if any(not re.fullmatch('[a-f0-9]{64}',build.get(k,'')) for k in ['overlay_sha256','source_inventory_sha256','executable_sha256','runtime_inventory_sha256','runtime_report_sha256']):raise ValueError('invalid build identity')
     if (folder/'failure.json').exists():raise ValueError('runtime reported failed capture')
     runtime=json.loads((folder/'runtime.json').read_text())
     if runtime.get('status')!='captured' or runtime.get('kind')!='native-window-framebuffer' or runtime.get('platform')!='xcb' or runtime.get('captureMethod')!='QScreen::grabWindow(root,frameGeometry)':raise ValueError('not the expected native capture method')
@@ -91,7 +91,7 @@ def validate_capture(folder, master_path, build):
     nonce=build.get('capture_nonce','')
     if not re.fullmatch('[a-f0-9]{32}',nonce) or runtime.get('captureNonce')!=nonce:raise ValueError('capture nonce differs from fresh launch')
     if runtime.get('executableSHA256')!=build['executable_sha256']:raise ValueError('actual executable identity differs from verified build')
-    identity={k:build[k] for k in ['donor_commit','overlay_sha256','source_inventory_sha256','executable_sha256']}
+    identity={k:build[k] for k in ['donor_commit','overlay_sha256','source_inventory_sha256','executable_sha256','runtime_inventory_sha256','runtime_report_sha256']}
     identity_hash=sha256(json.dumps(identity,sort_keys=True,separators=(',',':')).encode())
     if runtime.get('buildIdentitySHA256')!=identity_hash:raise ValueError('runtime build identity differs from expected source/overlay')
     resource=(folder/'resource.png').read_bytes()
@@ -114,10 +114,28 @@ def validate_capture(folder, master_path, build):
             'build':build,'runtime':runtime,'files':files,'native_unique_colors':len(colors)}
 
 
+def validate_runtime_report(report, build):
+    inventory=report.get('inventory',{})
+    if report.get('version')!=1 or not report.get('elf') or 'bin/obs' not in report['elf']:
+        raise ValueError('installed ELF dependency report missing')
+    if sha256(json.dumps(inventory,sort_keys=True,separators=(',',':')).encode())!=build.get('runtime_inventory_sha256'):
+        raise ValueError('installed runtime inventory differs from build receipt')
+    if inventory.get('files',{}).get('bin/obs',{}).get('sha256')!=build.get('executable_sha256'):
+        raise ValueError('installed runtime executable differs from build receipt')
+    if sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode())!=build.get('runtime_report_sha256'):
+        raise ValueError('installed runtime closure report differs from build receipt')
+    return report
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('directory',type=Path);parser.add_argument('--build-evidence',required=True,type=Path)
+    parser.add_argument('--runtime-evidence',required=True,type=Path)
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
-    result=validate_capture(args.directory,root/'assets/branding/StreamStrike-logo.png',json.loads(args.build_evidence.read_text()))
+    build=json.loads(args.build_evidence.read_text())
+    runtime=validate_runtime_report(json.loads(args.runtime_evidence.read_text()),build)
+    result=validate_capture(args.directory,root/'assets/branding/StreamStrike-logo.png',build)
+    result['runtime_dependency_report_sha256']=sha256(args.runtime_evidence.read_bytes())
+    result['installed_elf_count']=len(runtime['elf'])
     out=args.directory/'verified.json'
     with out.open('x') as file:json.dump(result,file,indent=2);file.write('\n')
     print('Verified fresh-launch build/artifact identity consistency; hosted process provenance and visual review still required.')

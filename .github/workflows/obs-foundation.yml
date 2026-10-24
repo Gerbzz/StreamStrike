@@ -1,7 +1,7 @@
 name: OBS source foundation
 on:
   pull_request:
-    paths: ['foundation/**', 'tools/obs_foundation.py', 'tools/obs_branding.py', 'tools/obs_capture.sh', 'tools/verify_obs_capture.py', 'tests/branding/**', 'assets/branding/StreamStrike-logo.png', 'tests/test_obs_*.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
+    paths: ['foundation/**', 'tools/obs_foundation.py', 'tools/obs_branding.py', 'tools/obs_runtime.py', 'tools/obs_capture.sh', 'tools/verify_obs_capture.py', 'tests/branding/**', 'assets/branding/StreamStrike-logo.png', 'tests/test_obs_*.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -64,12 +64,12 @@ jobs:
           cmake -S tests/branding -B build-branding-test -G Ninja
           cmake --build build-branding-test
           QT_QPA_PLATFORM=offscreen build-branding-test/streamstrike-icon-contract
-      - name: Build actual OBS frontend with the reviewed branding overlay
-        run: python3 tools/obs_branding.py build
       - name: Install standard ephemeral X11 capture tools
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y xvfb openbox stalonetray x11-utils
+      - name: Build actual OBS frontend with the reviewed branding overlay
+        run: python3 tools/obs_branding.py build
       - name: Capture actual branded native frontend and verify identities
         run: tools/obs_capture.sh
       - name: Retain branding capture and diagnostics (no binary release)
