@@ -27,7 +27,7 @@ def canonical(value):
 
 
 def git(source, *args):
-    return subprocess.check_output(['git', '-C', str(source), *args], stderr=subprocess.PIPE)
+    return subprocess.check_output(['git', '--no-replace-objects', '-C', str(source), *args], stderr=subprocess.PIPE)
 
 
 def safe_path(name):
@@ -37,6 +37,28 @@ def safe_path(name):
     if p.parts[0] in {'.git', 'build_ubuntu', RECEIPT}:
         raise ValueError('reserved source path: ' + name)
     return p
+
+
+def _canonical_checkout(source, pin, name, blob, content):
+    # Only the pinned commit's attributes may explain an EOL checkout.
+    # Never invoke clean/smudge filters or accept arbitrary normalized bytes.
+    info = Path(git(source, 'rev-parse', '--git-path', 'info/attributes').decode().strip())
+    if not info.is_absolute(): info = source / info
+    if info.exists() or info.is_symlink():
+        raise ValueError('untracked Git info attributes cannot authorize source conversion')
+    env = dict(os.environ); env['GIT_ATTR_NOSYSTEM'] = '1'; env.pop('GIT_ATTR_SOURCE', None)
+    raw = subprocess.check_output(['git', '--no-replace-objects', '-C', str(source), '-c', 'core.attributesFile=/dev/null',
+                                  'check-attr', '--source=' + pin, '-z', 'text', 'eol', 'filter',
+                                  'working-tree-encoding', '--', name], env=env, stderr=subprocess.PIPE)
+    fields = raw.rstrip(b'\0').split(b'\0')
+    attrs = {fields[n+1].decode():fields[n+2].decode() for n in range(0,len(fields),3)}
+    if attrs != {'text':'set','eol':'crlf','filter':'unspecified','working-tree-encoding':'unspecified'}:
+        raise ValueError('source Git object identity mismatch: ' + name)
+    canonical_blob = git(source, 'cat-file', 'blob', blob)
+    actual = hashlib.sha1(b'blob ' + str(len(canonical_blob)).encode() + b'\0' + canonical_blob).hexdigest()
+    if actual != blob or b'\0' in canonical_blob or b'\r\n' in canonical_blob or content != canonical_blob.replace(b'\n',b'\r\n'):
+        raise ValueError('source Git object identity mismatch: ' + name)
+    return canonical_blob, {'checkout_conversion':'text-eol-crlf','checkout_sha256':sha256(content)}
 
 
 def _snapshot(source, pin, prefix=''):
@@ -89,9 +111,12 @@ def _snapshot(source, pin, prefix=''):
             if bool(path.stat().st_mode & stat.S_IXUSR) != (mode == '100755'):
                 raise ValueError('source mode identity mismatch: ' + full_name)
         actual = hashlib.sha1(b'blob ' + str(len(content)).encode() + b'\0' + content).hexdigest()
+        checkout = {}
         if actual != blob:
-            raise ValueError('source Git object identity mismatch: ' + full_name)
-        files[full_name] = {'mode': mode, 'sha256': sha256(content), 'content': content}
+            if mode == '120000':
+                raise ValueError('source Git object identity mismatch: ' + full_name)
+            content, checkout = _canonical_checkout(source, pin, name, blob, content)
+        files[full_name] = {'mode': mode, 'sha256': sha256(content), 'content': content, **checkout}
     return files, submodules
 
 

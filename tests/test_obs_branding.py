@@ -48,6 +48,81 @@ class BrandingCopy(unittest.TestCase):
         self.assertEqual(receipt['donor_commit'],self.pin)
         self.m.verify_copy(self.out,self.overlay,self.root)
 
+    def eol_fixture(self, attributes='*.sln text eol=crlf\n'):
+        self.git('config','core.autocrlf','false')
+        (self.source/'.gitattributes').write_text(attributes)
+        path=self.source/'project.sln'; path.write_bytes(b'first line\nsecond line\n')
+        self.git('add','.');self.git('commit','-qm','EOL attributes fixture')
+        self.overlay['donor_commit']=self.git('rev-parse','HEAD').strip()
+        path.unlink();self.git('checkout','--','project.sln')
+        return path
+
+    def test_explicit_crlf_checkout_exports_exact_canonical_git_blob(self):
+        path=self.eol_fixture()
+        self.assertEqual(path.read_bytes(),b'first line\r\nsecond line\r\n')
+        self.assertEqual(self.git('status','--porcelain'),'')
+        receipt=self.prepare()
+        self.assertEqual((self.out/'project.sln').read_bytes(),b'first line\nsecond line\n')
+        self.assertEqual(receipt['files']['project.sln']['checkout_conversion'],'text-eol-crlf')
+        self.assertEqual(receipt['files']['project.sln']['checkout_sha256'],self.m.sha256(path.read_bytes()))
+        self.m.verify_copy(self.out,self.overlay,self.root)
+
+    def test_crlf_attribute_does_not_hide_byte_tampering(self):
+        path=self.eol_fixture();self.git('update-index','--assume-unchanged','project.sln')
+        path.write_bytes(b'changed content\r\n')
+        with self.assertRaisesRegex(ValueError,'identity'):self.prepare()
+        self.assertFalse(self.out.exists())
+
+    def test_lf_attribute_does_not_authorize_crlf_worktree(self):
+        path=self.eol_fixture('*.sln text eol=lf\n');self.git('update-index','--assume-unchanged','project.sln')
+        path.write_bytes(b'first line\r\nsecond line\r\n')
+        with self.assertRaisesRegex(ValueError,'identity'):self.prepare()
+
+    def test_unspecified_attribute_does_not_authorize_crlf_worktree(self):
+        path=self.eol_fixture('');self.git('update-index','--assume-unchanged','project.sln')
+        path.write_bytes(b'first line\r\nsecond line\r\n')
+        with self.assertRaisesRegex(ValueError,'identity'):self.prepare()
+
+    def test_untracked_info_attributes_cannot_authorize_checkout_conversion(self):
+        path=self.eol_fixture('');self.git('update-index','--assume-unchanged','project.sln')
+        (self.source/'.git/info/attributes').write_text('*.sln text eol=crlf\n')
+        path.write_bytes(b'first line\r\nsecond line\r\n')
+        with self.assertRaisesRegex(ValueError,'attributes'):self.prepare()
+
+    def test_filter_attribute_does_not_authorize_eol_conversion(self):
+        self.eol_fixture('*.sln text eol=crlf filter=example\n')
+        with self.assertRaisesRegex(ValueError,'identity'):self.prepare()
+
+    def test_missing_cr_is_not_an_authorized_checkout_conversion(self):
+        path=self.eol_fixture();self.git('update-index','--assume-unchanged','project.sln')
+        path.write_bytes(b'first line\r\nsecond line\n')
+        with self.assertRaisesRegex(ValueError,'identity'):self.prepare()
+
+    def test_extra_cr_is_not_an_authorized_checkout_conversion(self):
+        path=self.eol_fixture();self.git('update-index','--assume-unchanged','project.sln')
+        path.write_bytes(b'first line\r\r\nsecond line\r\n')
+        with self.assertRaisesRegex(ValueError,'identity'):self.prepare()
+
+    def test_declared_lf_checkout_exports_exact_bytes(self):
+        path=self.eol_fixture('*.sln text eol=lf\n');receipt=self.prepare()
+        self.assertEqual((self.out/'project.sln').read_bytes(),path.read_bytes())
+        self.assertNotIn('checkout_conversion',receipt['files']['project.sln'])
+
+    def test_initialized_submodule_crlf_checkout_exports_canonical_blob(self):
+        module=self.source/'module';module.mkdir()
+        def git(*args):return subprocess.check_output(['git','-C',str(module),*args],text=True,stderr=subprocess.DEVNULL)
+        git('init','-q');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid')
+        (module/'.gitattributes').write_text('*.sln text eol=crlf\n')
+        path=module/'project.sln';path.write_bytes(b'canonical\n')
+        git('add','.');git('commit','-qm','nested EOL fixture');pin=git('rev-parse','HEAD').strip()
+        path.unlink();git('checkout','--','project.sln')
+        self.git('update-index','--add','--cacheinfo','160000,'+pin+',module');self.git('commit','-qm','pin nested fixture')
+        self.overlay['donor_commit']=self.git('rev-parse','HEAD').strip()
+        receipt=self.prepare()
+        self.assertEqual((self.out/'module/project.sln').read_bytes(),b'canonical\n')
+        self.assertEqual(receipt['submodules']['module'],pin)
+        self.assertEqual(receipt['files']['module/project.sln']['checkout_conversion'],'text-eol-crlf')
+
     def test_existing_destination_is_not_overwritten(self):
         self.out.mkdir(); (self.out/'keep').write_text('keep')
         with self.assertRaises(FileExistsError): self.prepare()

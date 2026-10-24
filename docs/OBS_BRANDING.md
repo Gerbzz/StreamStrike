@@ -18,6 +18,15 @@ for six donor source files plus three new resource/helper files. Every later
 verify/build/run rederives the expected copy from the clean donor and reviewed
 overlay; an edited receipt cannot authorize different source. Unlisted source,
 path escapes, dirty/missing submodules, changed assets or binaries fail closed.
+For explicit pinned `text eol=crlf` files, the donor checkout must equal the
+canonical Git blob with exactly LF→CRLF conversion. The copy uses the exact
+canonical blob and records the raw checkout hash/conversion separately. Unknown
+filters, encodings, attribute overrides or other byte changes cannot authorize
+this conversion.
+Attribute reads use the immutable pin (requiring Git with `check-attr --source`
+support), with system/global/info overrides excluded. The canonical conversion
+path itself never invokes clean/smudge filters; ordinary Git status checks still
+have their normal Git semantics.
 The generated build directory may not be a symlink, and generated symlinks must
 stay inside it.
 
