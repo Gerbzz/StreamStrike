@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/obsproject/obs-studio.git",
+  "commit": "72e86655715d9a25d69ce446aa4dd44ba58e10d2",
+  "license": "GPL-2.0-or-later",
+  "source_directory": "foundation/obs-studio",
+  "reference_status": "pinned development reference; not release acceptance",
+  "sha256": {
+    "CMakeLists.txt": "00596959c1a794b3c9629ded85095b07e3dcf52f50540f059ccffdfc3243169a",
+    "CMakePresets.json": "6349158638e4b619dfde33732769a6bfc68b6868990bd0c215838779e8dffb88",
+    "COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "libobs/obs-data.c": "be204adab14cf4e814df4841a9fd6050297fdd97b79e62645dac7d239085b214",
+    ".github/actions/build-obs/action.yaml": "202f1cfec79448752447b9cdce9a64e74d48b02e6f1a14d6585fef563b1cfc1e",
+    ".github/scripts/.build.zsh": "451c1a58e27129e0bbdc321f7d0c7782198c015997b15f46a0bb1df740d5fc53"
+  }
+}

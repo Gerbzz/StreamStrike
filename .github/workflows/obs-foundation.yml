@@ -1,0 +1,51 @@
+name: OBS source foundation
+on:
+  pull_request:
+    paths: ['foundation/**', 'tools/obs_foundation.py', 'tests/test_obs_foundation.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-obs:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Test source guardrails
+        run: python3 -m unittest discover -s tests -p test_obs_foundation.py -v
+      - name: Check out official OBS source and pinned submodules
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          repository: obsproject/obs-studio
+          ref: 72e86655715d9a25d69ce446aa4dd44ba58e10d2
+          path: foundation/obs-studio
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify actual source before executing it
+        run: python3 tools/obs_foundation.py verify
+      - name: Build original OBS frontend and engine using upstream entrypoint
+        uses: ./foundation/obs-studio/.github/actions/build-obs
+        with:
+          workingDirectory: ${{ github.workspace }}/foundation/obs-studio
+          target: x86_64
+          config: RelWithDebInfo
+      - name: Verify build output and record source evidence
+        run: |
+          set -euo pipefail
+          test -x foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs
+          mkdir -p obs-build-evidence
+          cp foundation/obs-source.lock.json obs-build-evidence/
+          git -C foundation/obs-studio rev-parse HEAD > obs-build-evidence/obs-commit.txt
+          git -C foundation/obs-studio describe --always --tags --dirty=-modified > obs-build-evidence/obs-version.txt
+          git -C foundation/obs-studio submodule status --recursive > obs-build-evidence/submodules.txt
+          sha256sum foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs > obs-build-evidence/executable.sha256
+          printf '%s\n' 'Original C/C++ OBS compiled. Not a Rust rewrite, native acceptance, or release.' > obs-build-evidence/status.txt
+      - name: Upload build provenance only (no binary release)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: obs-source-build-evidence
+          path: obs-build-evidence
+          if-no-files-found: error
