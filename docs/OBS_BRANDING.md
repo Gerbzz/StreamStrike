@@ -95,7 +95,18 @@ artifact retains the matching dependency report and inventory hashes.
 ## Acceptance gates
 
 The existing standard Ubuntu job first retains the unchanged original OBS build
-and its provenance. It then compiles real Qt icon tests, prepares/verifies/builds
+and its provenance. It explicitly installs `qt6-svg-plugins` alongside the standard
+ephemeral X11 tools before Qt tests and branded build/runtime inventory. Ubuntu
+26.04 separates QIcon's SVG engine and SVG image handler from the linked SVG
+library; `qt6-svg-dev` alone did not install these recommended runtime plugins.
+The first mechanically passing native capture (`40118442822`) was rejected in
+visual review because original toolbar SVG icons rendered as ellipses. That image
+is diagnostic evidence, not an accepted README screenshot. No replacement icons,
+theme changes or plugin-path overrides are used to conceal the missing dependency.
+See the [official Ubuntu package file list](https://packages.ubuntu.com/resolute/all/qt6-svg-plugins/filelist)
+and [Qt icon-engine documentation](https://doc.qt.io/qt-6/qicon.html#icon-engines).
+
+The job then compiles real Qt icon tests, prepares/verifies/builds
 the branding copy, and runs `tools/obs_capture.sh` under Xvfb, Openbox and a real
 stalonetray host. Actual WM and Qt tray readiness are required before launch. This is a separate isolated synthetic HOME/configuration with
 `FirstRun=true`, an empty source collection and no account/device/media fixture.
@@ -105,7 +116,12 @@ The opt-in hook reads the actual app/window/tray icons and compiled PNG, switche
 only tray presentation to prove active/paused glyphs, restores idle, and captures
 the real native root-framebuffer region covering the decorated OBS window. It
 never reconstructs the UI, composites a logo onto a screenshot or starts media
-outputs. The app closes through normal OBS shutdown. Missing tray/display,
+outputs. It also requires the SVG image handler, renders the hash-checked original
+OBS plus resource through `QIcon`, and reads the actual visible/enabled scene and
+source add-toolbar button icons. Their nonempty 16×16 alpha silhouettes must match
+the original plus; theme colors are preserved, not replaced. These readbacks and
+their pixel hashes are recorded in the fresh runtime receipt. The app closes
+through normal OBS shutdown. Missing SVG/icon rendering, tray/display,
 unexposed window, modal startup, wrong resource, output overwrite,
 blank image, timeout or nonzero exit is a failed gate. Artifacts retain failures
 rather than silently treating them as success. Visual review must reject an

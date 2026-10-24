@@ -24,17 +24,23 @@ capture/recording acceptance, installer, or StreamStrike release**.
 
 The supported helper path currently targets Ubuntu 26.04. Prepare the toolchain
 and dependencies required by the pinned upstream source, including CMake, Ninja,
-Qt, FFmpeg and CEF. This helper does not install system dependencies, invoke sudo,
+Qt (including Ubuntu's `qt6-svg-plugins` runtime package), FFmpeg and CEF. This helper does not install system dependencies, invoke sudo,
 or silently reduce frontend/browser functionality. The exact fully provisioned
 hosted build remains in [obs-foundation.yml](.github/workflows/obs-foundation.yml).
 
 ```sh
 python3 tools/obs_foundation.py fetch
-python3 tools/obs_foundation.py build --cef-root /absolute/path/to/prepared/upstream/CEF
+python3 tools/obs_foundation.py build --cef-root "$PWD/foundation/obs-studio/.deps/cef_binary_7871_linux_x86_64"
 python3 tools/obs_branding.py prepare
 python3 tools/obs_branding.py build
 python3 tools/obs_branding.py
 ```
+
+Before building, use the pinned upstream dependency preparation to retain both
+`.deps/cef_binary_7871_linux_x86_64.tar.xz` and its extracted directory inside the
+original donor. The branded helper requires this exact checksum-verified archive
+and canonical prepared location; an arbitrary external CEF directory is not its
+ownership-provenance contract. The hosted workflow demonstrates the full setup.
 
 The branding helper builds a separate tracked-source copy with a hash-locked overlay; the original donor and its original build remain unchanged. It wires the existing mark into the actual Qt window and all idle/active/paused tray states, retaining the OBS frontend and media engine. Native verification is a required hosted gate, not established merely by these source changes. [Overlay, validation and platform limits](docs/OBS_BRANDING.md).
 

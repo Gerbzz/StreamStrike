@@ -8,6 +8,8 @@
 #include <QElapsedTimer>
 #include <QThread>
 #include <QImage>
+#include <QMainWindow>
+#include <QToolBar>
 #include <QTemporaryDir>
 
 #include <iostream>
@@ -78,6 +80,64 @@ int main(int argc, char **argv)
 					.toImage();
 		check(!a.isNull() && !p.isNull() && a != p, "small state icons remain readable and distinct");
 	}
+
+	// Same action/toolbar identities as pinned frontend/forms/OBSBasic.ui.
+	// These are test widgets only; native verification inspects the actual OBS toolbar objects.
+	QMainWindow toolbarFixture;
+	QToolBar *scenes = toolbarFixture.addToolBar(QStringLiteral("Scenes"));
+	scenes->setObjectName(QStringLiteral("scenesToolbar"));
+	QToolBar *sources = toolbarFixture.addToolBar(QStringLiteral("Sources"));
+	sources->setObjectName(QStringLiteral("sourcesToolbar"));
+	const QIcon originalPlus(QStringLiteral(":/res/images/plus.svg"));
+	QAction *addScene = scenes->addAction(originalPlus, QStringLiteral("Add scene"));
+	addScene->setObjectName(QStringLiteral("actionAddScene"));
+	QAction *addSource = sources->addAction(originalPlus, QStringLiteral("Add source"));
+	addSource->setObjectName(QStringLiteral("actionAddSource"));
+	toolbarFixture.show();
+	app.processEvents();
+	QJsonObject readiness;
+	QString readinessError;
+	check(StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "original OBS SVG engine and actual toolbar icon pixmaps must render");
+	check(readiness.value(QStringLiteral("toolbarButtons")).toObject().size() == 2,
+	      "both actual toolbar button readbacks are recorded");
+	addScene->setIcon(QIcon());
+	check(!StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "text-only toolbar button with empty icon must fail readiness");
+	QPixmap transparent(16, 16);
+	transparent.fill(Qt::transparent);
+	addScene->setIcon(QIcon(transparent));
+	check(!StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "nonnull but fully transparent toolbar icon must fail readiness");
+	QPixmap wrongShape(16, 16);
+	wrongShape.fill(Qt::white);
+	addScene->setIcon(QIcon(wrongShape));
+	check(!StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "nonempty toolbar icon with wrong plus silhouette must fail readiness");
+	QImage themedPlus = originalPlus.pixmap(16, 16).toImage().convertToFormat(QImage::Format_ARGB32);
+	for (int y = 0; y < themedPlus.height(); ++y)
+		for (int x = 0; x < themedPlus.width(); ++x)
+			themedPlus.setPixelColor(x, y, QColor(254, 254, 254, themedPlus.pixelColor(x, y).alpha()));
+	addScene->setIcon(QIcon(QPixmap::fromImage(themedPlus)));
+	check(StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "original plus silhouette remains valid with the existing theme's different fill");
+	addScene->setIcon(originalPlus);
+	addSource->setObjectName(QStringLiteral("missingSourceAction"));
+	check(!StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "missing original source action must fail readiness");
+	addSource->setObjectName(QStringLiteral("actionAddSource"));
+	sources->removeAction(addSource);
+	check(!StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "action without an actual toolbar button must fail readiness");
+	sources->addAction(addSource);
+	app.processEvents();
+	addSource->setEnabled(false);
+	check(!StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "required add-source button must be enabled");
+	addSource->setEnabled(true);
+	check(StreamStrikeCapture::toolbarIconReadiness(&toolbarFixture, readiness, readinessError),
+	      "restored original toolbar SVG icons pass again");
+	toolbarFixture.hide();
 
 	// Removing the early disabled branch would create a timer or reject null arguments here.
 	qunsetenv("STREAMSTRIKE_CAPTURE_DIR");

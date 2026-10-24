@@ -59,15 +59,15 @@ jobs:
           name: obs-source-build-evidence
           path: obs-build-evidence
           if-no-files-found: error
+      - name: Install standard ephemeral X11 and SVG runtime tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y xvfb openbox stalonetray x11-utils qt6-svg-plugins
       - name: Build and exercise shared Qt identity contracts
         run: |
           cmake -S tests/branding -B build-branding-test -G Ninja
           cmake --build build-branding-test
           QT_QPA_PLATFORM=offscreen build-branding-test/streamstrike-icon-contract
-      - name: Install standard ephemeral X11 capture tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y xvfb openbox stalonetray x11-utils
       - name: Build actual OBS frontend with the reviewed branding overlay
         run: python3 tools/obs_branding.py build
       - name: Capture actual branded native frontend and verify identities

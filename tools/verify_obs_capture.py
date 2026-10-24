@@ -77,6 +77,26 @@ def matches_master(pixels, master):
     return checked>=64
 
 
+def validate_ui_icons(readiness):
+    if (not isinstance(readiness,dict) or readiness.get('svgImageReader') is not True or
+            readiness.get('originalSvgResource')!=':/res/images/plus.svg' or
+            readiness.get('originalSvgSHA256')!='559bbcc914d0ee4a4c61f2af615f4cfac4100f90f93ac2de0b8a9cf3a4af9891'):
+        raise ValueError('original SVG runtime readiness missing or source identity differs')
+    buttons=readiness.get('toolbarButtons',{})
+    if not isinstance(buttons,dict) or set(buttons)!={'scenesToolbar/actionAddScene','sourcesToolbar/actionAddSource'}:
+        raise ValueError('actual toolbar icon readiness missing')
+    for name,pixels in [('original SVG',readiness.get('originalSvgPixmap',{})),*buttons.items()]:
+        if (not isinstance(pixels,dict) or pixels.get('width')!=16 or pixels.get('height')!=16 or
+                type(pixels.get('nonTransparentPixels')) is not int or not 8<=pixels['nonTransparentPixels']<=256 or
+                not isinstance(pixels.get('rgbaSHA256'),str) or not re.fullmatch('[a-f0-9]{64}',pixels['rgbaSHA256'])):
+            raise ValueError('original SVG or actual toolbar icon pixels missing: '+name)
+        if name!='original SVG' and (pixels.get('visible') is not True or pixels.get('enabled') is not True):
+            raise ValueError('actual toolbar icon button is hidden or disabled: '+name)
+        if name!='original SVG' and (pixels.get('alphaMatchesOriginal') is not True or
+                pixels['nonTransparentPixels']!=readiness['originalSvgPixmap']['nonTransparentPixels']):
+            raise ValueError('actual toolbar icon silhouette differs from original SVG: '+name)
+
+
 def validate_capture(folder, master_path, build):
     folder=Path(folder);master_data=Path(master_path).read_bytes()
     if sha256(master_data)!=MASTER:raise ValueError('master resource does not match published identity')
@@ -87,6 +107,7 @@ def validate_capture(folder, master_path, build):
     if runtime.get('status')!='captured' or runtime.get('kind')!='native-window-framebuffer' or runtime.get('platform')!='xcb' or runtime.get('captureMethod')!='QScreen::grabWindow(root,frameGeometry)':raise ValueError('not the expected native capture method')
     if not runtime.get('title','').startswith('StreamStrike - OBS '):raise ValueError('wrong actual window title')
     if runtime.get('trayAvailable') is not True or runtime.get('trayVisible') is not True or runtime.get('iconStateProof')!='actual-tray-object-presentation-only':raise ValueError('actual tray state evidence missing')
+    validate_ui_icons(runtime.get('uiIconReadiness'))
     if not runtime.get('nativeWindowId','').isdigit() or int(runtime['nativeWindowId'])==0:raise ValueError('native window identity missing')
     nonce=build.get('capture_nonce','')
     if not re.fullmatch('[a-f0-9]{32}',nonce) or runtime.get('captureNonce')!=nonce:raise ValueError('capture nonce differs from fresh launch')

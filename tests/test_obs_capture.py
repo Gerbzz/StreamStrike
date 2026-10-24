@@ -36,6 +36,12 @@ class NativeCapture(unittest.TestCase):
         self.runtime['executableSHA256']=self.build['executable_sha256']
         identity={k:v for k,v in self.build.items() if k!='capture_nonce'}
         self.runtime['buildIdentitySHA256']=self.m.sha256(json.dumps(identity,sort_keys=True,separators=(',',':')).encode())
+        pixels={'width':16,'height':16,'nonTransparentPixels':48,'rgbaSHA256':'1'*64}
+        self.runtime['uiIconReadiness']={'svgImageReader':True,'originalSvgResource':':/res/images/plus.svg',
+            'originalSvgSHA256':'559bbcc914d0ee4a4c61f2af615f4cfac4100f90f93ac2de0b8a9cf3a4af9891',
+            'originalSvgPixmap':dict(pixels),'toolbarButtons':{
+                name:{**pixels,'visible':True,'enabled':True,'alphaMatchesOriginal':True}
+                for name in ('scenesToolbar/actionAddScene','sourcesToolbar/actionAddSource')}}
         self.bind_artifacts()
 
     def bind_artifacts(self):
@@ -110,5 +116,22 @@ class NativeCapture(unittest.TestCase):
     def test_png_crc_corruption_rejected(self):
         p=self.out/'native.png';b=bytearray(p.read_bytes());b[40]^=1;p.write_bytes(b)
         with self.assertRaisesRegex(ValueError,'PNG'):self.check()
+    def test_missing_original_ui_icon_readiness_rejected(self):
+        del self.runtime['uiIconReadiness'];self.save()
+        with self.assertRaisesRegex(ValueError,'SVG|toolbar'):self.check()
+    def test_missing_svg_handler_or_wrong_source_rejected(self):
+        original=json.loads(json.dumps(self.runtime['uiIconReadiness']))
+        for key,value in [('svgImageReader',False),('originalSvgResource',':/invented.svg'),('originalSvgSHA256','0'*64)]:
+            self.runtime['uiIconReadiness']={**original,key:value};self.save()
+            with self.assertRaisesRegex(ValueError,'SVG|toolbar'):self.check()
+    def test_missing_hidden_disabled_or_blank_actual_toolbar_icon_rejected(self):
+        original=json.loads(json.dumps(self.runtime['uiIconReadiness']))
+        for key,value in [('visible',False),('enabled',False),('nonTransparentPixels',0),('rgbaSHA256','bad'),('width',0),('alphaMatchesOriginal',False)]:
+            self.runtime['uiIconReadiness']=json.loads(json.dumps(original))
+            self.runtime['uiIconReadiness']['toolbarButtons']['scenesToolbar/actionAddScene'][key]=value;self.save()
+            with self.assertRaisesRegex(ValueError,'SVG|toolbar'):self.check()
+        self.runtime['uiIconReadiness']=original
+        del self.runtime['uiIconReadiness']['toolbarButtons']['sourcesToolbar/actionAddSource'];self.save()
+        with self.assertRaisesRegex(ValueError,'SVG|toolbar'):self.check()
 
 if __name__=='__main__':unittest.main()

@@ -4,6 +4,8 @@
 #include "StreamStrikeBranding.hpp"
 
 #include <QApplication>
+#include <QAbstractButton>
+#include <QAction>
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -11,6 +13,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QImageReader>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,6 +21,7 @@
 #include <QScreen>
 #include <QSystemTrayIcon>
 #include <QTimer>
+#include <QToolBar>
 #include <QWidget>
 #include <QWindow>
 
@@ -49,6 +53,94 @@ inline QByteArray fileSHA256(const QString &path)
 	if (!digest.addData(&file) || file.error() != QFileDevice::NoError)
 		return {};
 	return digest.result().toHex();
+}
+
+inline bool iconPixelReadback(const QPixmap &pixmap, QImage &pixels, QJsonObject &identity)
+{
+	if (pixmap.isNull() || pixmap.size() != QSize(16, 16))
+		return false;
+	pixels = pixmap.toImage().convertToFormat(QImage::Format_RGBA8888);
+	QByteArray rgba;
+	int nonTransparent = 0;
+	for (int y = 0; y < pixels.height(); ++y) {
+		const uchar *row = pixels.constScanLine(y);
+		rgba.append(reinterpret_cast<const char *>(row), pixels.width() * 4);
+		for (int x = 0; x < pixels.width(); ++x)
+			nonTransparent += row[x * 4 + 3] != 0;
+	}
+	if (nonTransparent < 8)
+		return false;
+	identity = {{"width", pixels.width()}, {"height", pixels.height()},
+		    {"nonTransparentPixels", nonTransparent},
+		    {"rgbaSHA256", QString::fromLatin1(QCryptographicHash::hash(rgba, QCryptographicHash::Sha256).toHex())}};
+	return true;
+}
+
+inline bool toolbarIconReadiness(QWidget *window, QJsonObject &readiness, QString &error)
+{
+	readiness = {};
+	error.clear();
+	if (!window) {
+		error = QStringLiteral("actual toolbar window is missing");
+		return false;
+	}
+	const QString resourcePath = QStringLiteral(":/res/images/plus.svg");
+	const QByteArray resourceHash = fileSHA256(resourcePath);
+	QImageReader reader(resourcePath);
+	if (!QImageReader::supportedImageFormats().contains(QByteArrayLiteral("svg")) || !reader.canRead() ||
+	    reader.read().isNull()) {
+		error = QStringLiteral("original OBS SVG image reader is unavailable");
+		return false;
+	}
+	if (resourceHash != "559bbcc914d0ee4a4c61f2af615f4cfac4100f90f93ac2de0b8a9cf3a4af9891") {
+		error = QStringLiteral("original OBS plus SVG resource identity mismatch");
+		return false;
+	}
+	QImage originalPixels;
+	QJsonObject originalIdentity;
+	if (!iconPixelReadback(QIcon(resourcePath).pixmap(16, 16), originalPixels, originalIdentity)) {
+		error = QStringLiteral("original OBS SVG QIcon engine produced no visible pixels");
+		return false;
+	}
+	QJsonObject buttons;
+	// Pinned OBSBasic.ui assigns these actions to these toolbars. Qt creates the
+	// actual button widgets; their own object names are not a stable source contract.
+	const char *required[][2] = {{"scenesToolbar", "actionAddScene"}, {"sourcesToolbar", "actionAddSource"}};
+	for (const auto &names : required) {
+		const QString toolbarName = QString::fromLatin1(names[0]);
+		const QString actionName = QString::fromLatin1(names[1]);
+		auto toolbar = window->findChild<QToolBar *>(toolbarName);
+		auto action = window->findChild<QAction *>(actionName);
+		auto button = toolbar && action ? qobject_cast<QAbstractButton *>(toolbar->widgetForAction(action)) : nullptr;
+		if (!button || !button->isVisible() || !button->isEnabled() || !action->isVisible() || !action->isEnabled()) {
+			error = QStringLiteral("actual enabled toolbar button is missing or hidden: ") + toolbarName + '/' + actionName;
+			return false;
+		}
+		QImage pixels;
+		QJsonObject identity;
+		if (!iconPixelReadback(button->icon().pixmap(QSize(16, 16), QIcon::Normal, QIcon::Off), pixels, identity)) {
+			error = QStringLiteral("actual toolbar icon has no visible pixels: ") + toolbarName + '/' + actionName;
+			return false;
+		}
+		// Yami.obt overrides icon-plus with Dark/plus.svg: identical geometry,
+		// intentionally different fill. Check alpha shape without replacing theme color.
+		for (int y = 0; y < 16; ++y) {
+			for (int x = 0; x < 16; ++x) {
+				if (pixels.constScanLine(y)[x * 4 + 3] != originalPixels.constScanLine(y)[x * 4 + 3]) {
+					error = QStringLiteral("actual toolbar plus icon shape differs: ") + toolbarName + '/' + actionName;
+					return false;
+				}
+			}
+		}
+		identity.insert(QStringLiteral("visible"), true);
+		identity.insert(QStringLiteral("enabled"), true);
+		identity.insert(QStringLiteral("alphaMatchesOriginal"), true);
+		buttons.insert(toolbarName + '/' + actionName, identity);
+	}
+	readiness = {{"svgImageReader", true}, {"originalSvgResource", resourcePath},
+		     {"originalSvgSHA256", QString::fromLatin1(resourceHash)}, {"originalSvgPixmap", originalIdentity},
+		     {"toolbarButtons", buttons}};
+	return true;
 }
 
 inline bool schedule(QWidget *window, QSystemTrayIcon *tray)
@@ -126,6 +218,12 @@ inline bool schedule(QWidget *window, QSystemTrayIcon *tray)
 			return;
 		}
 		timer->stop();
+		QJsonObject uiIconReadiness;
+		QString uiIconError;
+		if (!toolbarIconReadiness(guardedWindow, uiIconReadiness, uiIconError)) {
+			fail(uiIconError);
+			return;
+		}
 
 		const QByteArray executableHash = fileSHA256(QCoreApplication::applicationFilePath());
 		if (executableHash.isEmpty()) {
@@ -211,6 +309,7 @@ inline bool schedule(QWidget *window, QSystemTrayIcon *tray)
 			{"buildIdentitySHA256", QString::fromLatin1(buildIdentity)},
 			{"executableSHA256", QString::fromLatin1(executableHash)},
 			{"artifactSHA256", artifactHashes},
+			{"uiIconReadiness", uiIconReadiness},
 			{"kind", "native-window-framebuffer"},
 			{"platform", QGuiApplication::platformName()},
 			{"title", guardedWindow->windowTitle()},
