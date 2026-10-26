@@ -202,7 +202,7 @@
     {
       "path": "libobs/streamstrike-fader/StreamStrikeFader.cmake",
       "source": "foundation/rust-fader/StreamStrikeFader.cmake",
-      "sha256": "31bff194a70d10db4501f3fcbaf8395a9b95082ec3f1cdf31054bef32ad6843b"
+      "sha256": "4c77704a6fdf76dfdeae442dcd77dc66800354c8679805aa712ea2ad5ea3af6d"
     }
   ]
 }

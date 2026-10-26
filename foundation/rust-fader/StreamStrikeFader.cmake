@@ -27,5 +27,13 @@ add_library(streamstrike_fader STATIC IMPORTED)
 set_target_properties(streamstrike_fader PROPERTIES IMPORTED_LOCATION "${_fader_archive}")
 add_dependencies(streamstrike_fader streamstrike_fader_build)
 target_link_libraries(libobs PRIVATE streamstrike_fader)
+# OBS's Gio imported target omits its GLib/GObject link interface, although
+# libobs's existing D-Bus/portal sources call both directly. Declare those
+# dependencies explicitly instead of weakening the strict shared-library gate.
+if(TARGET gio::gio)
+  find_library(STREAMSTRIKE_GOBJECT_LIBRARY NAMES gobject-2.0 HINTS ${PC_Gio_LIBRARY_DIRS} REQUIRED)
+  find_library(STREAMSTRIKE_GLIB_LIBRARY NAMES glib-2.0 HINTS ${PC_Gio_LIBRARY_DIRS} REQUIRED)
+  target_link_libraries(libobs PRIVATE "${STREAMSTRIKE_GOBJECT_LIBRARY}" "${STREAMSTRIKE_GLIB_LIBRARY}")
+endif()
 # The final shared object must not tolerate missing Rust definitions.
 target_link_options(libobs PRIVATE "LINKER:--no-undefined")

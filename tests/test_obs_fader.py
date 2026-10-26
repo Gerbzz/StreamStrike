@@ -48,6 +48,14 @@ class IecFaderParity(unittest.TestCase):
 
 
 class FaderOverlay(unittest.TestCase):
+    def test_strict_link_declares_existing_glib_dependencies(self):
+        cmake = (ROOT / 'foundation/rust-fader/StreamStrikeFader.cmake').read_text()
+        self.assertIn('if(TARGET gio::gio)', cmake)
+        self.assertIn('find_library(STREAMSTRIKE_GOBJECT_LIBRARY NAMES gobject-2.0 HINTS ${PC_Gio_LIBRARY_DIRS} REQUIRED)', cmake)
+        self.assertIn('find_library(STREAMSTRIKE_GLIB_LIBRARY NAMES glib-2.0 HINTS ${PC_Gio_LIBRARY_DIRS} REQUIRED)', cmake)
+        self.assertIn('target_link_libraries(libobs PRIVATE "${STREAMSTRIKE_GOBJECT_LIBRARY}" "${STREAMSTRIKE_GLIB_LIBRARY}")', cmake)
+        self.assertIn('"LINKER:--no-undefined"', cmake)
+
     def test_runtime_overlay_replaces_functions_and_links_rust(self):
         import json, sys
         sys.path.insert(0, str(ROOT / 'tools'))

@@ -51,7 +51,7 @@ known custom CPU/fast-math flags, and the complete-libobs gate includes the exac
 sensitive boundary and neighbors. Passing the forced non-contracting reduced
 oracle does not establish parity for other compiler configurations.
 
-Current local evidence: 129 Python tests passed (including ten added tests).
+Current local evidence: 130 Python tests passed (including eleven added tests).
 Full complete-libobs/CMake/native acceptance is pending hosted checks, not established
 by these local results. Publication and merge receipts must be reported separately.
 
@@ -63,3 +63,10 @@ python3 -m unittest discover -s tests -p 'test_obs_*.py' -v
 # After complete original and branded/native builds:
 python3 tools/verify_obs_fader.py
 ```
+
+First hosted run built original OBS and passed shared Qt contracts, but strict
+migrated linking exposed existing direct GLib/GObject calls missing from OBS's
+Gio link interface. The integration now declares those providers explicitly only
+when Gio is enabled. `--no-undefined` remains required; a reduced C link reproduces
+the missing-provider failure and passes with both providers. Full native acceptance
+still requires the corrected hosted candidate to pass all gates.
