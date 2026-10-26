@@ -1,7 +1,7 @@
 name: OBS source foundation
 on:
   pull_request:
-    paths: ['foundation/**', 'tools/obs_foundation.py', 'tools/obs_branding.py', 'tools/obs_runtime.py', 'tools/obs_components.py', 'tools/obs_capture.sh', 'tools/verify_obs_capture.py', 'tests/branding/**', 'assets/branding/StreamStrike-logo.png', 'tests/test_obs_*.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
+    paths: ['foundation/**', 'tools/obs_foundation.py', 'tools/obs_branding.py', 'tools/obs_runtime.py', 'tools/obs_components.py', 'tools/verify_obs_fader.py', 'tools/obs_capture.sh', 'tools/verify_obs_capture.py', 'tests/branding/**', 'tests/rust_fader/**', 'assets/branding/StreamStrike-logo.png', 'tests/test_obs_*.py', 'evidence/upstream/**', '.github/workflows/obs-foundation.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
+      - name: Require existing Rust compiler for the runtime port
+        run: rustc --version
       - name: Test source guardrails
         run: python3 -m unittest discover -s tests -p 'test_obs_*.py' -v
       - name: Check out official OBS source and pinned submodules
@@ -42,6 +44,10 @@ jobs:
           set -euo pipefail
           test -x foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs
           mkdir -p obs-build-evidence
+          ninja -C foundation/obs-studio/build_ubuntu -t commands libobs/CMakeFiles/libobs.dir/obs-audio-controls.c.o > obs-build-evidence/original-audio-compile-command.txt
+          cc -v > obs-build-evidence/compiler-version.txt 2>&1
+          cc -Q --help=target > obs-build-evidence/compiler-target-defaults.txt
+          cc -Q --help=optimizers > obs-build-evidence/compiler-optimizer-defaults.txt
           ldd foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs | tee obs-build-evidence/loader.txt
           if grep -q 'not found' obs-build-evidence/loader.txt; then
             echo 'Original OBS developer executable has unresolved runtime libraries' >&2
@@ -70,6 +76,18 @@ jobs:
           QT_QPA_PLATFORM=offscreen build-branding-test/streamstrike-icon-contract
       - name: Build actual OBS frontend with the reviewed branding overlay
         run: python3 tools/obs_branding.py build
+      - name: Verify complete original and migrated IEC fader public APIs
+        run: python3 tools/verify_obs_fader.py
+      - name: Retain IEC runtime parity evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: streamstrike-fader-${{ github.sha }}
+          path: |
+            obs-fader-evidence
+            foundation/streamstrike-obs/build_ubuntu/libobs/libstreamstrike-fader.profile.json
+            foundation/streamstrike-obs/build_ubuntu/compile_commands.json
+          if-no-files-found: warn
       - name: Capture actual branded native frontend and verify identities
         run: tools/obs_capture.sh
       - name: Retain branding capture and diagnostics (no binary release)

@@ -20,10 +20,13 @@ OBS, not a parallel replacement UI or a wrapper presented as a completed rewrite
 Studio frontend and libobs engine**, not the retired custom Rust project-editor
 UI. A [bounded Rust scalar-settings parity module](docs/OBS_SCALAR_PARITY.md)
 (`src/obs_scalar.rs`) implements boolean, string and numeric tier resolution,
-but **is not yet integrated into the native OBS runtime**. The next migration
-slice replaces the native boolean/string settings-read functions with Rust
-implementations invoked by the existing OBS frontend, with original-source
-parity and native-execution checks required before acceptance.
+but **is not yet integrated into the native OBS runtime**. The separate native
+boolean/string settings-reader candidate remains unpublished and is not included
+here. This branch independently ports the **two IEC fader conversion functions**
+to Rust through the existing libobs dispatch, preserving the original Qt UI.
+[IEC migration scope and proof](docs/OBS_IEC_FADER.md) distinguish source/ABI tests
+from the required complete-libobs and native-frontend hosted acceptance. This is
+not the complete fader, audio engine, settings subsystem or OBS rewrite.
 
 The pinned upstream source is
 `obsproject/obs-studio` commit `72e86655715d9a25d69ce446aa4dd44ba58e10d2`
@@ -49,7 +52,7 @@ a recording or streaming demonstration. [Source, hashes and scope](assets/screen
 ## Default developer application: actual OBS with StreamStrike identity
 
 The supported helper path currently targets Ubuntu 26.04. Prepare the toolchain
-and dependencies required by the pinned upstream source, including CMake, Ninja,
+and dependencies required by the pinned upstream source, including Rust (edition 2024), CMake, Ninja,
 Qt (including Ubuntu's `qt6-svg-plugins` runtime package), FFmpeg and CEF. This helper does not install system dependencies, invoke sudo,
 or silently reduce frontend/browser functionality. The exact fully provisioned
 hosted build remains in [obs-foundation.yml](.github/workflows/obs-foundation.yml).
