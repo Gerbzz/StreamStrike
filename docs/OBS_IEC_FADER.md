@@ -17,14 +17,15 @@ The separately held six settings-reader candidate is **not** included or publish
   fallthrough. No new dependency or approximation is added.
 - The existing hash-locked source-copy overlay removes the two original C bodies,
   declares hidden Rust ABI functions and redirects the existing dispatch names.
-  The pinned donor checkout is never edited. Both added source files are hashed.
+  The pinned donor checkout is never edited. All added source and build-oracle files are hashed.
 - `StreamStrikeFader.cmake` compiles a PIC Rust static library and links it into
   the actual `libobs` target. Source, CMake and the discovered compiler executable timestamp invalidate the
   custom-command output. Switching a rustup-managed active toolchain requires a
   clean build directory (or explicit removal of the old archive) and reconfigure;
   a stable rustup proxy path alone does not attest that change. Missing Rust or undefined references fail the build;
-  there is no C fallback. This initial path is baseline native x86_64 Linux only, not FMA/fast-math/custom-CPU, cross-build
-  or Windows/macOS acceptance.
+  there is no C fallback. This path supports GNU C native x86_64 Linux profiles only when the exact compiler
+  oracle passes. It is not cross-build or Windows/macOS acceptance, and FMA-profile
+  artifacts require the same supported CPU/OS capabilities at execution.
 
 ## Tests and acceptance boundary
 
@@ -45,15 +46,37 @@ The separately held six settings-reader candidate is **not** included or publish
    normal-shutdown tests still follow. A passing reduced C oracle does not waive
    them. No recording, streaming, hardware or release claim follows from this slice.
 
-An independent review reproduced a one-ULP difference for FMA-contracted C
-(input bits `0x3f000001`). Such configurations are not accepted: CMake rejects
-known custom CPU/fast-math flags, and the complete-libobs gate includes the exact
-sensitive boundary and neighbors. Passing the forced non-contracting reduced
-oracle does not establish parity for other compiler configurations.
+The first complete native oracle found 69/1,000 rounding differences: the actual
+original library used fused arithmetic, while the initial Rust profile did not.
+Both complete native builds passed, but the parity gate failed and native capture
+was skipped. No acceptance or merge followed. Retained run 40338854446/artifact
+12658329598 anchors the regression fixture. Independent reduced C reproduction
+matched all original rows with FMA and all initial Rust rows without it.
 
-Current local evidence: 130 Python tests passed (including eleven added tests).
-Full complete-libobs/CMake/native acceptance is pending hosted checks, not established
-by these local results. Publication and merge receipts must be reported separately.
+The correction supports explicit separate and fused arithmetic profiles. The
+build-only driver replays the exact `obs-audio-controls.c` compile-command argv,
+changing only source/output/dependency-output arguments, to compile pinned original
+helpers. It first tries separate Rust arithmetic; only a numerical mismatch permits
+trying Rust x86_64 FMA intrinsics at the twelve original multiply-plus-offset sites.
+The fused oracle checks AVX/FMA/OSXSAVE and XGETBV XMM/YMM state before executing it.
+Either profile must pass 200,000 original-C bit patterns and boundary neighbors
+before its archive may link into libobs; crashes/unsupported CPU or unknown math
+behavior fail closed. This is native-build support, not portable binary distribution.
+The C oracle is build-only and never linked into the shipped application. Rust
+runtime conversion is still Rust; the rest of libobs remains transitional C/C++.
+
+Compiler argv/macros/version, Rust/source hashes, failed attempts, selected profile
+and archive digest are retained. Compile database, compiler, source, script and
+CMake inputs invalidate the archive. A rustup proxy changing its selected toolchain
+without changing its executable still requires clean reconfiguration, as noted above.
+The workflow retains original audio compile invocation and compiler target defaults
+as well. GCC-specific effective-option diagnostics currently reject other C
+compilers explicitly. The complete original-vs-migrated public API gate remains bit-exact and
+unchanged; original reference flags are never altered to fit Rust.
+
+Local profile tests and all 69 observed mismatches pass the corrected reduced
+regression. Corrected complete-libobs/CMake/native acceptance remains pending hosted
+checks; source fixtures are not native acceptance. Publication/merge receipts are separate.
 
 Commands (with an existing official Rust compiler in PATH):
 

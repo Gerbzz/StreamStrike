@@ -24,7 +24,13 @@ def original_functions():
 
 
 class IecFaderParity(unittest.TestCase):
+    def test_original_fused_functions_match_rust_c_abi(self):
+        self._run_oracle(True)
+
     def test_original_source_functions_match_rust_c_abi(self):
+        self._run_oracle(False)
+
+    def _run_oracle(self, fused):
         rustc = shutil.which('rustc')
         self.assertIsNotNone(rustc, 'Rust compiler is required; never silently skip parity')
         cc = shutil.which('cc')
@@ -34,17 +40,86 @@ class IecFaderParity(unittest.TestCase):
             archive = tmp / 'libfader.a'
             subprocess.run([rustc, '--edition=2024', '--crate-type=staticlib',
                             '-C', 'panic=abort', '-C', 'opt-level=2', '-C', 'relocation-model=pic',
-                            str(ROOT / 'foundation/rust-fader/iec.rs'), '-o', str(archive)], check=True)
+                            str(ROOT / 'foundation/rust-fader/iec.rs'), '-o', str(archive)]
+                           + (['--cfg', 'streamstrike_fma'] if fused else []), check=True)
             program = tmp / 'oracle.c'
             program.write_text('#include <math.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <string.h>\n'
                                + original_functions()
                                + (ROOT / 'tests/rust_fader/iec_oracle.c').read_text())
             binary = tmp / 'oracle'
-            subprocess.run([cc, '-std=c11', '-Wall', '-Wextra', '-Werror', '-O2', '-ffp-contract=off',
+            subprocess.run([cc, '-std=gnu17', '-Wall', '-Wextra', '-Werror', '-O2']
+                           + (['-mfma', '-ffp-contract=fast'] if fused else ['-ffp-contract=off']) + [
                             str(program), str(archive), '-lm', '-o', str(binary)], check=True)
             result = subprocess.run([str(binary)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn('IEC parity: 200000 random bit patterns plus boundary neighbors passed', result.stdout)
+
+
+class FaderCompilerProfiles(unittest.TestCase):
+    def test_all_69_hosted_mismatches_are_resolved_by_fused_profile(self):
+        import ctypes, json
+        fixture = json.loads((ROOT / 'tests/rust_fader/hosted-trace.json').read_text())
+        original, prior = fixture['original'], fixture['prior_rust']
+        self.assertEqual(len(original), 1000)
+        self.assertEqual(sum(a != b for a, b in zip(original, prior)), 69)
+        with tempfile.TemporaryDirectory(prefix='streamstrike-native-regression-') as folder:
+            folder = Path(folder)
+            for profile, expected in [('separate', prior), ('fused', original)]:
+                archive = folder / (profile + '.a')
+                subprocess.run([shutil.which('rustc'), '--edition=2024', '--crate-type=staticlib',
+                                '-C', 'panic=abort', '-C', 'opt-level=2', '-C', 'relocation-model=pic',
+                                str(ROOT / 'foundation/rust-fader/iec.rs'), '-o', str(archive)]
+                               + (['--cfg', 'streamstrike_fma'] if profile == 'fused' else []), check=True)
+                library = folder / (profile + '.so')
+                subprocess.run([shutil.which('cc'), '-shared', '-fPIC', '-Wl,--no-undefined',
+                                str(ROOT / 'tests/rust_fader/public_state.c'), str(archive), '-o', str(library)], check=True)
+                function = ctypes.CDLL(str(library)).diagnostic_row
+                function.argtypes = [ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32)]
+                function.restype = None
+                for index, row in enumerate(expected):
+                    output = (ctypes.c_uint32 * 4)()
+                    function(int(index >= 500), row[0], output)
+                    self.assertEqual(list(output), row, (profile, index))
+
+    def test_build_oracle_preserves_pinned_original_helpers(self):
+        self.assertIn(original_functions(), (ROOT / 'foundation/rust-fader/oracle.c').read_text())
+
+    def test_exact_compile_replay_selects_both_profiles(self):
+        import json, sys
+        rustc = shutil.which('rustc')
+        self.assertIsNotNone(rustc)
+        with tempfile.TemporaryDirectory(prefix='streamstrike-profiles-') as folder:
+            folder = Path(folder)
+            source = folder / 'obs-audio-controls.c'
+            source.write_text('/* compile identity only */')
+            for profile, flags in [('separate', ['-ffp-contract=off']),
+                                   ('fused', ['-mfma', '-ffp-contract=fast'])]:
+                database = folder / 'compile_commands.json'
+                entry = {'directory': str(folder), 'file': str(source),
+                         'arguments': [shutil.which('cc'), '-O2', '-std=gnu17', *flags,
+                                       '-MD', '-MF', 'audio.d', '-o', 'audio.o', '-c', str(source)]}
+                database.write_text(json.dumps([entry]))
+                archive = folder / (profile + '.a')
+                subprocess.run([sys.executable, str(ROOT / 'foundation/rust-fader/build_fader.py'),
+                                '--database', str(database), '--source', str(source),
+                                '--rustc', rustc, '--compiler', shutil.which('cc'), '--output', str(archive)], check=True)
+                proof = json.loads(archive.with_suffix('.profile.json').read_text())
+                self.assertEqual(proof['selected_profile'], profile)
+                self.assertEqual(proof['compile_entry'], entry)
+                self.assertEqual(proof['archive_sha256'], hashlib.sha256(archive.read_bytes()).hexdigest())
+                self.assertEqual(proof['attempts'][-1]['returncode'], 0)
+                if profile == 'fused': self.assertEqual(proof['attempts'][0]['returncode'], 1)
+            # An invalidated compile database must not leave stale accepted outputs.
+            database.write_text('[]')
+            result = subprocess.run([sys.executable, str(ROOT / 'foundation/rust-fader/build_fader.py'),
+                                     '--database', str(database), '--source', str(source),
+                                     '--rustc', rustc, '--compiler', shutil.which('cc'), '--output', str(archive)],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(archive.exists())
+            self.assertFalse(archive.with_suffix('.profile.json').exists())
+            self.assertTrue(list(folder.glob('fused.a.previous-*')))
+
 
 
 class FaderOverlay(unittest.TestCase):

@@ -44,6 +44,10 @@ jobs:
           set -euo pipefail
           test -x foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs
           mkdir -p obs-build-evidence
+          ninja -C foundation/obs-studio/build_ubuntu -t commands libobs/CMakeFiles/libobs.dir/obs-audio-controls.c.o > obs-build-evidence/original-audio-compile-command.txt
+          cc -v > obs-build-evidence/compiler-version.txt 2>&1
+          cc -Q --help=target > obs-build-evidence/compiler-target-defaults.txt
+          cc -Q --help=optimizers > obs-build-evidence/compiler-optimizer-defaults.txt
           ldd foundation/obs-studio/build_ubuntu/install/RelWithDebInfo/bin/obs | tee obs-build-evidence/loader.txt
           if grep -q 'not found' obs-build-evidence/loader.txt; then
             echo 'Original OBS developer executable has unresolved runtime libraries' >&2
@@ -79,7 +83,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: streamstrike-fader-${{ github.sha }}
-          path: obs-fader-evidence
+          path: |
+            obs-fader-evidence
+            foundation/streamstrike-obs/build_ubuntu/libobs/libstreamstrike-fader.profile.json
+            foundation/streamstrike-obs/build_ubuntu/compile_commands.json
           if-no-files-found: warn
       - name: Capture actual branded native frontend and verify identities
         run: tools/obs_capture.sh

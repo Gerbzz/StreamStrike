@@ -197,12 +197,22 @@
     {
       "path": "libobs/streamstrike-fader/iec.rs",
       "source": "foundation/rust-fader/iec.rs",
-      "sha256": "f30f89c089103cf6f93ee10c82c0f749b2d314720ecea274ebc8d85d277f1737"
+      "sha256": "51d228fb1d7b913da02384d5c46158c8a25cb0a04459c21337fd5ffd6d86817c"
     },
     {
       "path": "libobs/streamstrike-fader/StreamStrikeFader.cmake",
       "source": "foundation/rust-fader/StreamStrikeFader.cmake",
-      "sha256": "4c77704a6fdf76dfdeae442dcd77dc66800354c8679805aa712ea2ad5ea3af6d"
+      "sha256": "75e96723a158073a2ded2d9fe815c29df044fbfbb19854a211482c7f4b369f67"
+    },
+    {
+      "path": "libobs/streamstrike-fader/build_fader.py",
+      "source": "foundation/rust-fader/build_fader.py",
+      "sha256": "7632ba10160e8997c41105beb39862146e712fe97902c3c1bbb05cc16deeae8a"
+    },
+    {
+      "path": "libobs/streamstrike-fader/oracle.c",
+      "source": "foundation/rust-fader/oracle.c",
+      "sha256": "c54af6eea4dc5b6be975daff4896167002ba629091ad9b02d12edf8e754a50a4"
     }
   ]
 }
