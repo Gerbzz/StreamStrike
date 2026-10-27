@@ -1,4 +1,4 @@
-"""Require complete original/migrated libobs IEC public-API parity on Linux."""
+"""Require complete original/migrated libobs all-three-fader public-API parity on Linux."""
 import ctypes
 import hashlib
 import json
@@ -11,22 +11,32 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 COUNT = 1000
+FADER_TYPES = {'cubic': 0, 'iec': 1, 'log': 2}
 
 
 def validate_pair(original, migrated):
     if original['library'] == migrated['library'] or original['sha256'] == migrated['sha256']:
         raise ValueError('original and migrated libraries must be distinct')
+    _validate_trace(original, migrated, 'iec')
+    for proof in (original, migrated):
+        if set(proof.get('additional', {})) != {'cubic', 'log'}:
+            raise ValueError('native trace must contain cubic and logarithmic faders')
+    for kind in ('cubic', 'log'):
+        _validate_trace(original['additional'][kind], migrated['additional'][kind], kind)
+    return True
+
+
+def _validate_trace(original, migrated, kind):
     for proof in (original, migrated):
         rows = proof['rows']
         if len(rows) != COUNT or any(len(r) != 4 or any(type(v) is not int for v in r) for r in rows):
-            raise ValueError('incomplete native fader trace')
-        if [r[0] for r in rows] != [bits(value) for _, value in cases()] or any(r[1] not in (0, 1) or any(v < 0 or v > 0xffffffff for v in r) for r in rows):
-            raise ValueError('native fader coverage or values differ from required cases')
-    if original['rust_callback'] or not migrated['rust_callback']:
-        raise ValueError('migrated public API must select the actual Rust callback')
+            raise ValueError('incomplete native fader trace: ' + kind)
+        if [r[0] for r in rows] != [bits(value) for _, value in cases(kind)] or any(r[1] not in (0, 1) or any(v < 0 or v > 0xffffffff for v in r) for r in rows):
+            raise ValueError('native fader coverage or values differ: ' + kind)
+    if original['rust_callback'] is not False or migrated['rust_callback'] is not True:
+        raise ValueError('migrated public API must select actual Rust callback: ' + kind)
     if original['rows'] != migrated['rows']:
-        raise ValueError('complete libobs IEC public API mismatch')
-    return True
+        raise ValueError('complete libobs public API mismatch: ' + kind)
 
 
 def digest(path):
@@ -37,9 +47,15 @@ def bits(value):
     return struct.unpack('<I', struct.pack('<f', value))[0]
 
 
-def cases():
+def cases(kind='iec'):
+    if kind not in FADER_TYPES:
+        raise ValueError('unknown fader type')
     edges = [float('-inf'), float('inf'), float('nan'), -0.0, 0.0, 1.0,
              .75, .5, .3, .15, .075, .025, .001, -9, -20, -30, -40, -50, -60, -114, -150]
+    if kind != 'iec':
+        # Retain IEC sequence exactly; add remaining formulas' limits separately.
+        edges += [-96.0, 6.0] + [struct.unpack('<f', struct.pack('<I', n))[0]
+                               for n in (0x26800001, 0x54cb2ff5)]
     neighbors = [struct.unpack('<f', struct.pack('<I', bits(x) + delta))[0]
                  for x in edges if math.isfinite(x) and x != 0.0 for delta in (-1, 1)]
     anchors = edges + neighbors
@@ -72,29 +88,35 @@ def inspect_library(path, migrated):
         function.argtypes = [ctypes.c_void_p]; function.restype = ctypes.c_float
     get_callback = library.obs_fader_db_to_def
     get_callback.argtypes = [ctypes.c_void_p]; get_callback.restype = ctypes.c_void_p
-    # Pinned obs-audio-controls.h defines OBS_FADER_IEC as the second enum value.
-    fader = create(1)
-    if not fader:
-        raise ValueError('original IEC public constructor failed')
-    try:
-        symbols = subprocess.check_output(['nm', '--defined-only', str(path)], text=True)
-        entries = [line.split() for line in symbols.splitlines()]
-        rust = {parts[2]: int(parts[0], 16) for parts in entries if len(parts) == 3 and parts[2].startswith('streamstrike_iec_')}
-        expected_symbols = {'streamstrike_iec_def_to_db', 'streamstrike_iec_db_to_def'}
-        if (migrated and set(rust) != expected_symbols) or (not migrated and rust):
-            raise ValueError('unexpected Rust implementation symbols')
-        rust_callback = bool(rust) and get_callback(fader) == info.base + rust['streamstrike_iec_db_to_def']
-        if migrated and not rust_callback:
-            raise ValueError('actual IEC dispatch does not point to Rust')
-        rows = []
-        for operation, value in cases():
-            accepted = (set_db if operation else set_def)(fader, value)
-            rows.append([bits(value), int(accepted), bits(get_db(fader)), bits(get_def(fader))])
-    finally:
-        destroy(fader)
+    symbols = subprocess.check_output(['nm', '--defined-only', str(path)], text=True)
+    entries = [line.split() for line in symbols.splitlines()]
+    rust = {parts[2]: int(parts[0], 16) for parts in entries if len(parts) == 3 and parts[2].startswith('streamstrike_') and parts[2].endswith(('_def_to_db', '_db_to_def'))}
+    expected_symbols = {'streamstrike_' + kind + '_' + direction
+                        for kind in FADER_TYPES for direction in ('def_to_db', 'db_to_def')}
+    if (migrated and set(rust) != expected_symbols) or (not migrated and rust):
+        raise ValueError('unexpected Rust implementation symbols')
+    traces = {}
+    # Pinned OBS enum: cubic=0, IEC=1, logarithmic=2. Original constructors and
+    # state/clamping remain in libobs; every public conversion selects Rust.
+    for kind, enum in FADER_TYPES.items():
+        fader = create(enum)
+        if not fader:
+            raise ValueError('original public constructor failed: ' + kind)
+        try:
+            rust_callback = bool(rust) and get_callback(fader) == info.base + rust['streamstrike_' + kind + '_db_to_def']
+            if migrated and not rust_callback:
+                raise ValueError('actual dispatch does not point to Rust: ' + kind)
+            rows = []
+            for operation, value in cases(kind):
+                accepted = (set_db if operation else set_def)(fader, value)
+                rows.append([bits(value), int(accepted), bits(get_db(fader)), bits(get_def(fader))])
+            traces[kind] = {'rows': rows, 'rust_callback': rust_callback}
+        finally:
+            destroy(fader)
+
     if digest(path) != before:
         raise ValueError('native library changed during oracle')
-    return {'library': str(path), 'sha256': before, 'rows': rows, 'rust_callback': rust_callback}
+    return {'library': str(path), 'sha256': before, **traces.pop('iec'), 'additional': traces}
 
 
 def library_path(prefix):
@@ -132,11 +154,11 @@ def run():
     obs_branding.checked()
     if obs_branding.verify_build()[1] != build:
         raise ValueError('source/build identity changed during oracle')
-    (evidence / 'verified.json').write_text(json.dumps({'cases': COUNT, 'build': build,
+    (evidence / 'verified.json').write_text(json.dumps({'cases': COUNT * len(FADER_TYPES), 'cases_per_type': COUNT, 'fader_types': FADER_TYPES, 'build': build,
         'original_sha256': hashes[0], 'migrated_sha256': hashes[1],
         'verifier_sha256': digest(__file__),
-        'scope': 'Two IEC converters in complete Linux libobs; not full fader/OBS rewrite or media acceptance'}, indent=2) + '\n')
-    print(f'Passed {COUNT} complete-libobs IEC public-API cases; actual callback points to Rust')
+        'scope': 'Six conversion bodies in complete Linux libobs; system libm FFI and C fader state remain; not full fader/OBS rewrite or media acceptance'}, indent=2) + '\n')
+    print(f'Passed {COUNT * len(FADER_TYPES)} complete-libobs public-API cases; all three actual callbacks point to Rust')
 
 
 if __name__ == '__main__':

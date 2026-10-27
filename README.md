@@ -22,11 +22,14 @@ UI. A [bounded Rust scalar-settings parity module](docs/OBS_SCALAR_PARITY.md)
 (`src/obs_scalar.rs`) implements boolean, string and numeric tier resolution,
 but **is not yet integrated into the native OBS runtime**. The separate native
 boolean/string settings-reader candidate remains unpublished and is not included
-here. This branch independently ports the **two IEC fader conversion functions**
-to Rust through the existing libobs dispatch, preserving the original Qt UI.
-[IEC migration scope and proof](docs/OBS_IEC_FADER.md) distinguish source/ABI tests
-from the required complete-libobs and native-frontend hosted acceptance. This is
-not the complete fader, audio engine, settings subsystem or OBS rewrite.
+here. The [IEC slice](docs/OBS_IEC_FADER.md) ports two conversion bodies through
+existing libobs dispatch. This candidate additionally ports the **four original
+cubic/logarithmic conversion bodies**, preserving the original Qt UI and C fader
+state/synchronization. Original system `libm` calls remain **transitional FFI**.
+[Remaining-converter scope and proof](docs/OBS_REMAINING_FADERS.md) distinguishes
+reduced source/ABI tests from required complete-libobs and native-frontend hosted
+acceptance. This is not the complete fader, audio engine, settings subsystem or
+OBS rewrite.
 
 The pinned upstream source is
 `obsproject/obs-studio` commit `72e86655715d9a25d69ce446aa4dd44ba58e10d2`

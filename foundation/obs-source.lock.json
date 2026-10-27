@@ -10,6 +10,8 @@
     "COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
     "libobs/obs-data.c": "be204adab14cf4e814df4841a9fd6050297fdd97b79e62645dac7d239085b214",
     ".github/actions/build-obs/action.yaml": "202f1cfec79448752447b9cdce9a64e74d48b02e6f1a14d6585fef563b1cfc1e",
-    ".github/scripts/.build.zsh": "451c1a58e27129e0bbdc321f7d0c7782198c015997b15f46a0bb1df740d5fc53"
+    ".github/scripts/.build.zsh": "451c1a58e27129e0bbdc321f7d0c7782198c015997b15f46a0bb1df740d5fc53",
+    "libobs/obs-audio-controls.c": "eb3eed166c8bd2b242fc774ce4b0a25b6b0704c96aa66901366f64cf3855e4ac",
+    "libobs/media-io/audio-math.h": "d27ca0475c3fe9b8144eccbbc850b8f7f1015fdac344b170641d3997834baa53"
   }
 }

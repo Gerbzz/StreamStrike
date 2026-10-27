@@ -1,14 +1,15 @@
-# Two original IEC conversion implementations move to Rust; libobs remains C/C++.
+# All six original conversion bodies move to Rust; libobs state remains C/C++.
+# System libm log10f/powf/cbrtf calls remain transitional FFI.
 # This first integration is deliberately native Linux only, not a cross-build.
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_CROSSCOMPILING OR
    NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
   message(FATAL_ERROR "StreamStrike Rust fader integration currently requires native x86_64 Linux")
 endif()
 if(NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  message(FATAL_ERROR "StreamStrike IEC compiler-profile diagnostics currently require GNU C")
+  message(FATAL_ERROR "StreamStrike fader compiler-profile diagnostics currently require GNU C")
 endif()
 # Replay the actual target compile command and fail closed on unsupported math.
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Retain exact IEC compiler provenance" FORCE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Retain exact fader compiler provenance" FORCE)
 set_property(TARGET libobs PROPERTY EXPORT_COMPILE_COMMANDS ON)
 find_program(STREAMSTRIKE_FADER_PYTHON python3 REQUIRED)
 find_program(STREAMSTRIKE_FADER_RUSTC rustc REQUIRED)

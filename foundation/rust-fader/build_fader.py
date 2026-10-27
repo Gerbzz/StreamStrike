@@ -1,4 +1,4 @@
-"""Build Rust IEC archive only after an exact-compiler original-C oracle passes."""
+"""Build Rust fader archive only after an exact-compiler original-C oracle passes."""
 import argparse
 import hashlib
 import json
@@ -96,7 +96,7 @@ def build(database, source, rustc, compiler_path, output):
             staged_profile.write_text(json.dumps(proof, indent=2) + '\n')
             staged_profile.replace(profile_path)
             staged.replace(output)
-            print('IEC exact compiler profile:', profile)
+            print('Fader exact compiler profile:', profile)
             print(result.stdout, end='')
             return
         # A numerical mismatch may try the other supported arithmetic profile;

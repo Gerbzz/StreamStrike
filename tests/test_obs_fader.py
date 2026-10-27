@@ -72,7 +72,7 @@ class FaderCompilerProfiles(unittest.TestCase):
                                + (['--cfg', 'streamstrike_fma'] if profile == 'fused' else []), check=True)
                 library = folder / (profile + '.so')
                 subprocess.run([shutil.which('cc'), '-shared', '-fPIC', '-Wl,--no-undefined',
-                                str(ROOT / 'tests/rust_fader/public_state.c'), str(archive), '-o', str(library)], check=True)
+                                str(ROOT / 'tests/rust_fader/public_state.c'), str(archive), '-lm', '-o', str(library)], check=True)
                 function = ctypes.CDLL(str(library)).diagnostic_row
                 function.argtypes = [ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32)]
                 function.restype = None
@@ -160,9 +160,11 @@ class FaderNativeEvidence(unittest.TestCase):
         from verify_obs_fader import validate_pair, cases, bits
         self.validate = validate_pair
         self.original = {'library': '/original/libobs.so', 'sha256': 'a'*64,
-                         'rows': [[bits(value), 0, 0, 0] for _, value in cases()], 'rust_callback': False}
+                         'rows': [[bits(value), 0, 0, 0] for _, value in cases()], 'rust_callback': False,
+                         'additional': {kind: {'rows': [[bits(value), 0, 0, 0] for _, value in cases(kind)], 'rust_callback': False} for kind in ('cubic', 'log')}}
         self.migrated = {**self.original, 'library': '/migrated/libobs.so', 'sha256': 'b'*64,
-                         'rust_callback': True}
+                         'rust_callback': True,
+                         'additional': {kind: {**trace, 'rust_callback': True} for kind, trace in self.original['additional'].items()}}
 
     def test_distinct_complete_matching_traces_are_accepted(self):
         self.assertTrue(self.validate(self.original, self.migrated))

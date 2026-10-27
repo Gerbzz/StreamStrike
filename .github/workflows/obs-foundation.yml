@@ -76,9 +76,9 @@ jobs:
           QT_QPA_PLATFORM=offscreen build-branding-test/streamstrike-icon-contract
       - name: Build actual OBS frontend with the reviewed branding overlay
         run: python3 tools/obs_branding.py build
-      - name: Verify complete original and migrated IEC fader public APIs
+      - name: Verify complete original and migrated cubic IEC logarithmic public APIs
         run: python3 tools/verify_obs_fader.py
-      - name: Retain IEC runtime parity evidence
+      - name: Retain all-three-fader runtime parity evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
