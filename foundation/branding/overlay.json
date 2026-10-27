@@ -156,11 +156,21 @@
     {
       "path": "libobs/obs-audio-controls.c",
       "input_sha256": "eb3eed166c8bd2b242fc774ce4b0a25b6b0704c96aa66901366f64cf3855e4ac",
-      "output_sha256": "7e515f7847cfd4ffb7b7e4c5faf26aa759bc7c79fb465afb1ca4f836527a1813",
+      "output_sha256": "2e5e0bb3ffa52f34c746dd45e7076937e1696dd25e9353fa76c68ce7d9a268c2",
       "edits": [
         {
           "before": "static float iec_def_to_db(const float def)\n{\n\tif (def == 1.0f)\n\t\treturn 0.0f;\n\telse if (def <= 0.0f)\n\t\treturn -INFINITY;\n\n\tfloat db;\n\n\tif (def >= 0.75f)\n\t\tdb = (def - 1.0f) / 0.25f * 9.0f;\n\telse if (def >= 0.5f)\n\t\tdb = (def - 0.75f) / 0.25f * 11.0f - 9.0f;\n\telse if (def >= 0.3f)\n\t\tdb = (def - 0.5f) / 0.2f * 10.0f - 20.0f;\n\telse if (def >= 0.15f)\n\t\tdb = (def - 0.3f) / 0.15f * 10.0f - 30.0f;\n\telse if (def >= 0.075f)\n\t\tdb = (def - 0.15f) / 0.075f * 10.0f - 40.0f;\n\telse if (def >= 0.025f)\n\t\tdb = (def - 0.075f) / 0.05f * 10.0f - 50.0f;\n\telse if (def >= 0.001f)\n\t\tdb = (def - 0.025f) / 0.025f * 90.0f - 60.0f;\n\telse\n\t\tdb = -INFINITY;\n\n\treturn db;\n}\n\nstatic float iec_db_to_def(const float db)\n{\n\tif (db == 0.0f)\n\t\treturn 1.0f;\n\telse if (db == -INFINITY)\n\t\treturn 0.0f;\n\n\tfloat def;\n\n\tif (db >= -9.0f)\n\t\tdef = (db + 9.0f) / 9.0f * 0.25f + 0.75f;\n\telse if (db >= -20.0f)\n\t\tdef = (db + 20.0f) / 11.0f * 0.25f + 0.5f;\n\telse if (db >= -30.0f)\n\t\tdef = (db + 30.0f) / 10.0f * 0.2f + 0.3f;\n\telse if (db >= -40.0f)\n\t\tdef = (db + 40.0f) / 10.0f * 0.15f + 0.15f;\n\telse if (db >= -50.0f)\n\t\tdef = (db + 50.0f) / 10.0f * 0.075f + 0.075f;\n\telse if (db >= -60.0f)\n\t\tdef = (db + 60.0f) / 10.0f * 0.05f + 0.025f;\n\telse if (db >= -114.0f)\n\t\tdef = (db + 150.0f) / 90.0f * 0.025f;\n\telse\n\t\tdef = 0.0f;\n\n\treturn def;\n}\n\n",
           "after": "/* Rust implements these two original conversions; fader storage/callbacks stay C. */\nextern __attribute__((visibility(\"hidden\"))) float streamstrike_iec_def_to_db(float);\nextern __attribute__((visibility(\"hidden\"))) float streamstrike_iec_db_to_def(float);\n#define iec_def_to_db streamstrike_iec_def_to_db\n#define iec_db_to_def streamstrike_iec_db_to_def\n\n",
+          "count": 1
+        },
+        {
+          "before": "static float cubic_def_to_db(const float def)\n{\n\tif (def == 1.0f)\n\t\treturn 0.0f;\n\telse if (def <= 0.0f)\n\t\treturn -INFINITY;\n\n\treturn mul_to_db(def * def * def);\n}\n\nstatic float cubic_db_to_def(const float db)\n{\n\tif (db == 0.0f)\n\t\treturn 1.0f;\n\telse if (db == -INFINITY)\n\t\treturn 0.0f;\n\n\treturn cbrtf(db_to_mul(db));\n}\n\n",
+          "after": "/* Original cubic conversion runtime in Rust; system libm remains transitional FFI. */\nextern __attribute__((visibility(\"hidden\"))) float streamstrike_cubic_def_to_db(float);\n#define cubic_def_to_db streamstrike_cubic_def_to_db\nextern __attribute__((visibility(\"hidden\"))) float streamstrike_cubic_db_to_def(float);\n#define cubic_db_to_def streamstrike_cubic_db_to_def\n\n",
+          "count": 1
+        },
+        {
+          "before": "#define LOG_OFFSET_DB 6.0f\n#define LOG_RANGE_DB 96.0f\n/* equals -log10f(LOG_OFFSET_DB) */\n#define LOG_OFFSET_VAL -0.77815125038364363f\n/* equals -log10f(-LOG_RANGE_DB + LOG_OFFSET_DB) */\n#define LOG_RANGE_VAL -2.00860017176191756f\n\nstatic float log_def_to_db(const float def)\n{\n\tif (def >= 1.0f)\n\t\treturn 0.0f;\n\telse if (def <= 0.0f)\n\t\treturn -INFINITY;\n\n\treturn -(LOG_RANGE_DB + LOG_OFFSET_DB) * powf((LOG_RANGE_DB + LOG_OFFSET_DB) / LOG_OFFSET_DB, -def) +\n\t       LOG_OFFSET_DB;\n}\n\nstatic float log_db_to_def(const float db)\n{\n\tif (db >= 0.0f)\n\t\treturn 1.0f;\n\telse if (db <= -96.0f)\n\t\treturn 0.0f;\n\n\treturn (-log10f(-db + LOG_OFFSET_DB) - LOG_RANGE_VAL) / (LOG_OFFSET_VAL - LOG_RANGE_VAL);\n}\n\n",
+          "after": "/* Original log conversion runtime in Rust; system libm remains transitional FFI. */\nextern __attribute__((visibility(\"hidden\"))) float streamstrike_log_def_to_db(float);\n#define log_def_to_db streamstrike_log_def_to_db\nextern __attribute__((visibility(\"hidden\"))) float streamstrike_log_db_to_def(float);\n#define log_db_to_def streamstrike_log_db_to_def\n\n",
           "count": 1
         }
       ]
@@ -197,22 +207,22 @@
     {
       "path": "libobs/streamstrike-fader/iec.rs",
       "source": "foundation/rust-fader/iec.rs",
-      "sha256": "51d228fb1d7b913da02384d5c46158c8a25cb0a04459c21337fd5ffd6d86817c"
+      "sha256": "cf87ce497c416b293cf83e9fba7bd61f6d2169d3c667114bce12162f6f33b8ff"
     },
     {
       "path": "libobs/streamstrike-fader/StreamStrikeFader.cmake",
       "source": "foundation/rust-fader/StreamStrikeFader.cmake",
-      "sha256": "75e96723a158073a2ded2d9fe815c29df044fbfbb19854a211482c7f4b369f67"
+      "sha256": "a0277c1beb07cb4d069721955dd442c2efd747a31f1a475c88895d35a8f802e5"
     },
     {
       "path": "libobs/streamstrike-fader/build_fader.py",
       "source": "foundation/rust-fader/build_fader.py",
-      "sha256": "7632ba10160e8997c41105beb39862146e712fe97902c3c1bbb05cc16deeae8a"
+      "sha256": "e3f67bae9b79babef656e0edefa34e2ab12138308e84ef8470d0016f039454be"
     },
     {
       "path": "libobs/streamstrike-fader/oracle.c",
       "source": "foundation/rust-fader/oracle.c",
-      "sha256": "c54af6eea4dc5b6be975daff4896167002ba629091ad9b02d12edf8e754a50a4"
+      "sha256": "52603a484d200798ab223049327e4dfca656e44523880cedf55516c2abbd08eb"
     }
   ]
 }

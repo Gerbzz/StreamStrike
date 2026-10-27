@@ -8,7 +8,7 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
 }
 
 // The build-only original-C probe selects this profile; its full differential
-// oracle must pass before linking libobs. No C arithmetic remains in runtime.
+// oracle must pass before linking libobs. No original converter C body remains; system libm FFI is disclosed below.
 #[inline]
 fn multiply_add(a: f32, b: f32, c: f32) -> f32 {
     #[cfg(streamstrike_fma)]
@@ -77,5 +77,73 @@ pub extern "C" fn streamstrike_iec_db_to_def(db: f32) -> f32 {
         (db + 150.0) / 90.0 * 0.025
     } else {
         0.0
+    }
+}
+
+// Transitional system-math ABI, the same libm primitives called by original OBS.
+// Branching, expression order and fader conversion runtime are Rust; these
+// transcendental implementations are not claimed as a Rust math-library port.
+#[link(name = "m")]
+unsafe extern "C" {
+    fn log10f(value: f32) -> f32;
+    fn powf(base: f32, exponent: f32) -> f32;
+    fn cbrtf(value: f32) -> f32;
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn streamstrike_cubic_def_to_db(def: f32) -> f32 {
+    if def == 1.0 {
+        0.0
+    } else if def <= 0.0 {
+        f32::NEG_INFINITY
+    } else {
+        let mul = (def * def) * def;
+        if mul == 0.0 { f32::NEG_INFINITY } else {
+            // SAFETY: system libm accepts every binary32 value, including NaN.
+            20.0 * unsafe { log10f(mul) }
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn streamstrike_cubic_db_to_def(db: f32) -> f32 {
+    if db == 0.0 {
+        1.0
+    } else if db == f32::NEG_INFINITY {
+        0.0
+    } else {
+        let mul = if db.is_finite() {
+            // SAFETY: system libm scalar ABI has no pointer preconditions.
+            unsafe { powf(10.0, db / 20.0) }
+        } else { 0.0 };
+        // SAFETY: same original system libm cbrtf operation.
+        unsafe { cbrtf(mul) }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn streamstrike_log_def_to_db(def: f32) -> f32 {
+    if def >= 1.0 {
+        0.0
+    } else if def <= 0.0 {
+        f32::NEG_INFINITY
+    } else {
+        // SAFETY: same original system libm powf operation.
+        multiply_add(-102.0, unsafe { powf(17.0, -def) }, 6.0)
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn streamstrike_log_db_to_def(db: f32) -> f32 {
+    const LOG_OFFSET_VAL: f32 = -0.77815125038364363;
+    const LOG_RANGE_VAL: f32 = -2.00860017176191756;
+    if db >= 0.0 {
+        1.0
+    } else if db <= -96.0 {
+        0.0
+    } else {
+        // SAFETY: same original system libm log10f operation.
+        (-unsafe { log10f(-db + 6.0) } - LOG_RANGE_VAL)
+            / (LOG_OFFSET_VAL - LOG_RANGE_VAL)
     }
 }
